@@ -1,0 +1,21 @@
+{
+  "name": "class-grading-server",
+  "version": "1.0.0",
+  "description": "AI-powered code grading backend for Agent Engineering course",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
