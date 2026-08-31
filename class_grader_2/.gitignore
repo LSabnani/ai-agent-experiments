@@ -1,0 +1,19 @@
+# Personal attempts at classes — never tracked except this folder's own README.
+.adk/
+outputs/
+.env
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# Node
+node_modules/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db

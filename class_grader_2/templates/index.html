@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Spec Grader | Intelligent Code & Specification Evaluator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Navigation -->
+        <header class="navbar">
+            <div class="nav-brand">
+                <div class="brand-logo">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-title">ML Spec Grader</span>
+                    <span class="brand-subtitle">AI & Automated Specification Evaluator</span>
+                </div>
+            </div>
+            <nav class="nav-tabs">
+                <button id="tab-grade-btn" class="nav-tab active" onclick="switchTab('grade')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    Submit & Grade
+                </button>
+                <button id="tab-instructor-btn" class="nav-tab" onclick="switchTab('instructor')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Instructor View
+                </button>
+                <button id="tab-traces-btn" class="nav-tab" onclick="switchTab('traces')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    Gemini Traces
+                </button>
+            </nav>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- SECTION 1: SUBMIT & GRADE VIEW -->
+            <section id="view-grade" class="view-panel active">
+                <div class="panel-header">
+                    <h2>Evaluate Submission</h2>
+                    <p>Enter the student name and folder path containing <code>SPECIFICATIONS.md</code> to grade.</p>
+                </div>
+
+                <div class="grid-layout">
+                    <!-- Left: Submission Form & Quick Select -->
+                    <div class="card form-card">
+                        <form id="grading-form" onsubmit="handleGradeSubmit(event)">
+                            <div class="form-group">
+                                <label for="student-name">Student Full Name</label>
+                                <div class="input-wrapper">
+                                    <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                    <input type="text" id="student-name" placeholder="e.g. Alice Johnson" required autocomplete="off">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="folder-path">Project Folder Path</label>
+                                <div class="input-wrapper">
+                                    <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                                    <input type="text" id="folder-path" placeholder="/path/to/student_folder" required autocomplete="off">
+                                </div>
+                            </div>
+
+                            <!-- Quick Sample Folder Selector -->
+                            <div class="quick-samples">
+                                <span class="samples-label">Quick select sample:</span>
+                                <div id="sample-badges" class="sample-badges">
+                                    <button type="button" class="sample-chip" onclick="setSample('Alice Johnson', 'sample_submissions/student_alice_perfect')">
+                                        🌟 Alice (Perfect Spec Match)
+                                    </button>
+                                    <button type="button" class="sample-chip" onclick="setSample('Bob Smith', 'sample_submissions/student_bob_partial')">
+                                        ⚡ Bob (Partial Match)
+                                    </button>
+                                    <button type="button" class="sample-chip" onclick="setSample('Travel Builder', '/home/pi-net/Documents/agent_eng_labs/agent_engineering/my-apps/travel-Itinerary-builder')">
+                                        🗺️ Travel Itinerary Multi-Agent
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button type="submit" id="btn-submit-grade" class="btn btn-primary btn-block">
+                                <span class="btn-text">Run ML Evaluation</span>
+                                <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            </button>
+                        </form>
+
+                        <div id="status-message" class="status-banner hidden"></div>
+                    </div>
+
+                    <!-- Right: Live Result Display -->
+                    <div class="card result-card">
+                        <div id="result-placeholder" class="placeholder-state">
+                            <div class="placeholder-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                            </div>
+                            <h3>No Active Evaluation</h3>
+                            <p>Submit a student project to review rubric compliance score, criteria breakdown, and execution logs.</p>
+                        </div>
+
+                        <!-- Active Score Report -->
+                        <div id="result-content" class="result-details hidden">
+                            <div class="score-header-box">
+                                <div class="score-dial">
+                                    <div class="score-number" id="res-score">--</div>
+                                    <div class="score-percent">%</div>
+                                </div>
+                                <div class="score-meta">
+                                    <div class="grade-badge" id="res-grade">--</div>
+                                    <h3 id="res-student-title">Student Evaluation</h3>
+                                    <p id="res-summary" class="score-summary-text"></p>
+                                    <div class="meta-tags">
+                                        <span class="tag tag-folder" id="res-folder-tag"></span>
+                                        <span class="tag tag-stored">✓ Saved to outputs/scores.json</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Strengths & Deductions -->
+                            <div class="feedback-grid">
+                                <div class="feedback-box strengths-box">
+                                    <h4>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                        Strengths & Passes
+                                    </h4>
+                                    <ul id="res-strengths" class="bullet-list"></ul>
+                                </div>
+                                <div class="feedback-box deductions-box">
+                                    <h4>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        Deductions & Gaps
+                                    </h4>
+                                    <ul id="res-deductions" class="bullet-list"></ul>
+                                </div>
+                            </div>
+
+                            <!-- Criteria Breakdown -->
+                            <div class="criteria-section">
+                                <h4>Detailed Specification Criteria Breakdown</h4>
+                                <div id="res-criteria-list" class="criteria-list"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 2: INSTRUCTOR VIEW -->
+            <section id="view-instructor" class="view-panel">
+                <div class="panel-header flex-between">
+                    <div>
+                        <h2>Instructor View</h2>
+                        <p>Class leaderboard showing highest score and latest submission for each student. Click any student's name to view all their submissions.</p>
+                    </div>
+                    <button class="btn btn-secondary" onclick="loadInstructorData()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                        Refresh
+                    </button>
+                </div>
+
+                <!-- Instructor Stat Summary Cards -->
+                <div class="stat-cards-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Students</div>
+                        <div class="stat-value" id="stat-total-students">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Submissions</div>
+                        <div class="stat-value" id="stat-total-subs">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Class Top Score</div>
+                        <div class="stat-value" id="stat-top-score">0%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Storage Target</div>
+                        <div class="stat-value small">outputs/scores.json (JSONL)</div>
+                    </div>
+                </div>
+
+                <!-- Students Table -->
+                <div class="card table-card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Student Name (Click to View All)</th>
+                                    <th>Highest Score</th>
+                                    <th>Latest Submission Score</th>
+                                    <th>Latest Submission Time</th>
+                                    <th>Total Submissions</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="instructor-table-body">
+                                <tr>
+                                    <td colspan="6" class="text-center">Loading student records...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 3: GEMINI TELEMETRY TRACES VIEW -->
+            <section id="view-traces" class="view-panel">
+                <div class="panel-header flex-between">
+                    <div>
+                        <h2>Gemini Telemetry & Execution Traces</h2>
+                        <p>Live audit trail of model calls, model responses, skill usages, and tool invocations from <code>outputs/gemini_traces.jsonl</code>.</p>
+                    </div>
+                    <button class="btn btn-secondary" onclick="loadTracesData()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                        Refresh Traces
+                    </button>
+                </div>
+
+                <div class="card trace-card">
+                    <div id="traces-list" class="traces-timeline">
+                        <div class="text-center" style="padding: 30px; color: var(--text-muted);">Loading traces...</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- STUDENT SUBMISSIONS DRILL-DOWN MODAL -->
+        <div id="student-modal" class="modal-overlay hidden">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <div>
+                        <h3 id="modal-student-name">Student Submissions</h3>
+                        <p id="modal-student-subtitle">All historical submissions recorded in outputs/scores.json</p>
+                    </div>
+                    <button class="modal-close" onclick="closeStudentModal()">&times;</button>
+                </div>
+                <div class="modal-body" id="modal-submissions-list">
+                    <!-- Dynamic historical submissions -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
