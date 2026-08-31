@@ -3,28 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ML Spec Grader | Intelligent Code & Specification Evaluator</title>
+    <title>Agentic ML Specification Grader</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 </head>
 <body>
-    <div class="app-container">
-        <!-- Top Navigation -->
-        <header class="navbar">
-            <div class="nav-brand">
-                <div class="brand-logo">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                    </svg>
+    <div class="app-shell">
+        <!-- Top Navigation Header -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="logo-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                 </div>
                 <div class="brand-text">
-                    <span class="brand-title">ML Spec Grader</span>
-                    <span class="brand-subtitle">AI & Automated Specification Evaluator</span>
+                    <h1>AutoGrader Pro</h1>
+                    <span class="badge badge-ai">Gemini Multi-Agentic Engine</span>
                 </div>
             </div>
+            
             <nav class="nav-tabs">
                 <button id="tab-grade-btn" class="nav-tab active" onclick="switchTab('grade')">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -47,7 +46,7 @@
             <section id="view-grade" class="view-panel active">
                 <div class="panel-header">
                     <h2>Evaluate Submission</h2>
-                    <p>Enter the student name and folder path containing <code>SPECIFICATIONS.md</code> to grade.</p>
+                    <p>Enter the student name and either a local directory path or a <strong>GitHub repository link</strong>.</p>
                 </div>
 
                 <div class="grid-layout">
@@ -63,10 +62,19 @@
                             </div>
 
                             <div class="form-group">
-                                <label for="folder-path">Project Folder Path</label>
+                                <label for="folder-path">Project Folder or GitHub Repository URL</label>
                                 <div class="input-wrapper">
                                     <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                                    <input type="text" id="folder-path" placeholder="/path/to/student_folder" required autocomplete="off">
+                                    <input type="text" id="folder-path" placeholder="https://github.com/owner/repo or /path/to/folder" required autocomplete="off">
+                                </div>
+                                <small style="color: var(--text-muted); font-size: 0.76rem; margin-top: 4px; display: block;">Supports full GitHub URLs (e.g. <code>https://github.com/user/repo/tree/main/subfolder</code>)</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="subfolder-path">Subfolder in Repository (Optional)</label>
+                                <div class="input-wrapper">
+                                    <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                                    <input type="text" id="subfolder-path" placeholder="e.g. lab1, assignments/hw2 (optional)" autocomplete="off">
                                 </div>
                             </div>
 
@@ -74,13 +82,13 @@
                             <div class="quick-samples">
                                 <span class="samples-label">Quick select sample:</span>
                                 <div id="sample-badges" class="sample-badges">
-                                    <button type="button" class="sample-chip" onclick="setSample('Alice Johnson', 'sample_submissions/student_alice_perfect')">
+                                    <button type="button" class="sample-chip" onclick="setSample('Alice Johnson', 'sample_submissions/student_alice_perfect', '')">
                                         🌟 Alice (Perfect Spec Match)
                                     </button>
-                                    <button type="button" class="sample-chip" onclick="setSample('Bob Smith', 'sample_submissions/student_bob_partial')">
+                                    <button type="button" class="sample-chip" onclick="setSample('Bob Smith', 'sample_submissions/student_bob_partial', '')">
                                         ⚡ Bob (Partial Match)
                                     </button>
-                                    <button type="button" class="sample-chip" onclick="setSample('Travel Builder', '/home/pi-net/Documents/agent_eng_labs/agent_engineering/my-apps/travel-Itinerary-builder')">
+                                    <button type="button" class="sample-chip" onclick="setSample('Travel Builder', '/home/pi-net/Documents/agent_eng_labs/agent_engineering/my-apps/travel-Itinerary-builder', '')">
                                         🗺️ Travel Itinerary Multi-Agent
                                     </button>
                                 </div>
@@ -102,7 +110,7 @@
                                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                             </div>
                             <h3>No Active Evaluation</h3>
-                            <p>Submit a student project to review rubric compliance score, criteria breakdown, and execution logs.</p>
+                            <p>Submit a student project or GitHub repository to review rubric compliance score, criteria breakdown, and execution logs.</p>
                         </div>
 
                         <!-- Active Score Report -->

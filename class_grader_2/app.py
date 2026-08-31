@@ -2,36 +2,31 @@ import os
 import glob
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
+
 from core.grader import Grader
+from core.models import GradeRequest, SubmissionRecord, StudentSummary
 from core.storage import ScoreStorage, DEFAULT_SCORES_PATH
 from core.telemetry import tracer
-from core.models import GradeRequest, SubmissionRecord, StudentSummary, EvaluationResult
 
-app = FastAPI(title="ML Specification Grader", description="Evaluates apps against SPECIFICATIONS.md")
+app = FastAPI(title="Agentic ML Specification Grader", version="2.0.0")
 
-# Mount static and templates directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
-OUTPUTS_DIR = os.path.join(BASE_DIR, "outputs")
-
-os.makedirs(STATIC_DIR, exist_ok=True)
-os.makedirs(TEMPLATES_DIR, exist_ok=True)
-os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
-scores_file_path = os.path.join(OUTPUTS_DIR, "scores.json")
-storage = ScoreStorage(scores_file_path)
-grader = Grader(scores_file=scores_file_path)
+storage = ScoreStorage(DEFAULT_SCORES_PATH)
+grader = Grader(scores_file=DEFAULT_SCORES_PATH)
 
 
-@app.get("/", response_class=FileResponse)
-async def index_page():
-    index_file = os.path.join(TEMPLATES_DIR, "index.html")
-    return FileResponse(index_file, media_type="text/html")
+@app.get("/", response_class=HTMLResponse)
+async def serve_index(request: Request):
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -47,10 +42,11 @@ async def grade_student_app(payload: GradeRequest):
     try:
         sub_record, _ = grader.grade_submission(
             student_name=payload.student_name,
-            folder_name=payload.folder_name
+            folder_name=payload.folder_name,
+            subfolder=payload.subfolder
         )
         return sub_record
-    except (FileNotFoundError, NotADirectoryError, ValueError) as e:
+    except (FileNotFoundError, NotADirectoryError, ValueError, RuntimeError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Grading error: {str(e)}")

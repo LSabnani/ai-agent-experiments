@@ -25,6 +25,8 @@ class CriterionResult(BaseModel):
     feedback: str
     evidence: Optional[str] = None
     category: str = "Functionality"
+    deduction_reason: Optional[str] = None
+    fix_recommendation: Optional[str] = None
 
 
 class EvaluationResult(BaseModel):
@@ -64,3 +66,4 @@ class StudentSummary(BaseModel):
 class GradeRequest(BaseModel):
     student_name: str
     folder_name: str
+    subfolder: Optional[str] = None

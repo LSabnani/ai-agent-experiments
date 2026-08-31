@@ -8,9 +8,10 @@ from core.telemetry import tracer
 
 
 def main():
-    parser = argparse.ArgumentParser(description="ML Specification Grader CLI")
+    parser = argparse.ArgumentParser(description="ML Specification Grader CLI (Supports Local Folders & GitHub URLs)")
     parser.add_argument("--student", "-s", type=str, help="Student Name (e.g. 'Alice Johnson')")
-    parser.add_argument("--folder", "-f", type=str, help="Path to project directory containing SPECIFICATIONS.md")
+    parser.add_argument("--folder", "-f", type=str, help="Path to project directory or GitHub repository URL (e.g. https://github.com/owner/repo or https://github.com/owner/repo/tree/main/subfolder)")
+    parser.add_argument("--subfolder", type=str, default=None, help="Optional subfolder within the repository or directory to grade")
     parser.add_argument("--scores-file", default=DEFAULT_SCORES_PATH, help=f"Path to scores JSON file (default: {DEFAULT_SCORES_PATH})")
     parser.add_argument("--list-students", action="store_true", help="Display instructor summary of all students")
     parser.add_argument("--student-history", type=str, help="Show all submissions for a specific student")
@@ -89,7 +90,11 @@ def main():
 
     grader = Grader(scores_file=args.scores_file)
     try:
-        sub_record, eval_result = grader.grade_submission(args.student, args.folder)
+        sub_record, eval_result = grader.grade_submission(
+            student_name=args.student, 
+            folder_name=args.folder,
+            subfolder=args.subfolder
+        )
         
         if args.json:
             print(sub_record.model_dump_json(indent=2))
@@ -106,10 +111,15 @@ def main():
         print("\n--- CRITERIA BREAKDOWN ---")
         for c in eval_result.criteria:
             status_icon = "✓ PASS" if c.status == "PASS" else ("⚠ PARTIAL" if c.status == "PARTIAL" else "✗ FAIL")
-            print(f"[{status_icon:<9}] {c.title:<35} | {c.earned_score:>4.1f}/{c.max_score:<4.1f} pts")
-            print(f"             Feedback: {c.feedback}")
+            print(f"\n[{status_icon:<9}] {c.title:<40} | {c.earned_score:>4.1f}/{c.max_score:<4.1f} pts")
+            print(f"             Reason / Findings: {c.feedback}")
             if c.evidence:
-                print(f"             Evidence: {c.evidence}")
+                print(f"             Evidence         : {c.evidence}")
+            if c.earned_score < c.max_score:
+                if c.deduction_reason:
+                    print(f"             ⚠️ Deduction      : {c.deduction_reason}")
+                if c.fix_recommendation:
+                    print(f"             💡 How to Fix    : {c.fix_recommendation}")
         
         if eval_result.strengths:
             print("\n--- KEY STRENGTHS ---")

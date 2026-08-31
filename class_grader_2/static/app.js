@@ -18,9 +18,13 @@ function switchTab(tab) {
     }
 }
 
-function setSample(name, folder) {
+function setSample(name, folder, subfolder = '') {
     document.getElementById('student-name').value = name;
     document.getElementById('folder-path').value = folder;
+    const subfolderEl = document.getElementById('subfolder-path');
+    if (subfolderEl) {
+        subfolderEl.value = subfolder;
+    }
 }
 
 // Handle Form Submission for Grading
@@ -29,6 +33,9 @@ async function handleGradeSubmit(event) {
 
     const studentName = document.getElementById('student-name').value.trim();
     const folderPath = document.getElementById('folder-path').value.trim();
+    const subfolderEl = document.getElementById('subfolder-path');
+    const subfolder = subfolderEl ? subfolderEl.value.trim() : '';
+
     const statusBanner = document.getElementById('status-message');
     const submitBtn = document.getElementById('btn-submit-grade');
     const placeholder = document.getElementById('result-placeholder');
@@ -37,8 +44,11 @@ async function handleGradeSubmit(event) {
     if (!studentName || !folderPath) return;
 
     // Set Loading State
+    const isGit = folderPath.startsWith('http://') || folderPath.startsWith('https://') || folderPath.includes('github.com');
     statusBanner.className = 'status-banner loading';
-    statusBanner.textContent = '⏳ Evaluating codebase with Gemini & logging telemetry traces...';
+    statusBanner.textContent = isGit 
+        ? '⏳ Fetching repository from GitHub & evaluating with Gemini...' 
+        : '⏳ Evaluating codebase with Gemini & logging telemetry traces...';
     statusBanner.classList.remove('hidden');
     submitBtn.disabled = true;
 
@@ -48,14 +58,15 @@ async function handleGradeSubmit(event) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 student_name: studentName,
-                folder_name: folderPath
+                folder_name: folderPath,
+                subfolder: subfolder || null
             })
         });
 
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.detail || 'Grading failed. Please check folder path.');
+            throw new Error(data.detail || 'Grading failed. Please check repository URL or folder path.');
         }
 
         // Render Result
@@ -110,12 +121,39 @@ function renderEvaluationResult(submission) {
         deductionsList.innerHTML = '<li>✓ Zero deductions! Perfect specification match.</li>';
     }
 
-    // Criteria Breakdown
+    // Detailed Criteria Breakdown with Deduction Reasons & Fix Recommendations
     const criteriaList = document.getElementById('res-criteria-list');
     criteriaList.innerHTML = '';
     if (details && details.criteria) {
         details.criteria.forEach(c => {
+            const isPerfect = c.earned_score >= c.max_score;
             const badgeClass = c.status === 'PASS' ? 'badge-pass' : (c.status === 'PARTIAL' ? 'badge-partial' : 'badge-fail');
+            
+            let deductionHtml = '';
+            if (!isPerfect && (c.deduction_reason || c.status !== 'PASS')) {
+                const reasonText = c.deduction_reason || `Incomplete implementation: earned ${c.earned_score} out of ${c.max_score} pts.`;
+                deductionHtml = `
+                    <div style="margin-top: 10px; padding: 10px 14px; background: rgba(239, 68, 68, 0.12); border-left: 3px solid #ef4444; border-radius: 4px;">
+                        <strong style="color: #f87171; font-size: 0.82rem; display: block; margin-bottom: 3px;">
+                            ⚠️ Deduction Reason (-${(c.max_score - c.earned_score).toFixed(1)} pts):
+                        </strong>
+                        <span style="font-size: 0.85rem; color: #fecaca;">${escapeHtml(reasonText)}</span>
+                    </div>
+                `;
+            }
+
+            let fixHtml = '';
+            if (!isPerfect && c.fix_recommendation) {
+                fixHtml = `
+                    <div style="margin-top: 8px; padding: 10px 14px; background: rgba(59, 130, 246, 0.12); border-left: 3px solid #3b82f6; border-radius: 4px;">
+                        <strong style="color: #60a5fa; font-size: 0.82rem; display: block; margin-bottom: 3px;">
+                            💡 How to Fix & Achieve Full Score:
+                        </strong>
+                        <span style="font-size: 0.85rem; color: #dbeafe;">${escapeHtml(c.fix_recommendation)}</span>
+                    </div>
+                `;
+            }
+
             const card = document.createElement('div');
             card.className = 'criterion-card';
             card.innerHTML = `
@@ -123,11 +161,13 @@ function renderEvaluationResult(submission) {
                     <span class="criterion-title">${escapeHtml(c.title)}</span>
                     <div>
                         <span class="criterion-badge ${badgeClass}">${c.status}</span>
-                        <span class="criterion-points">${c.earned_score}/${c.max_score} pts</span>
+                        <span class="criterion-points" style="font-weight: 700;">${c.earned_score}/${c.max_score} pts</span>
                     </div>
                 </div>
-                <div class="criterion-feedback">${escapeHtml(c.feedback)}</div>
-                ${c.evidence ? `<div class="criterion-evidence">Evidence: ${escapeHtml(c.evidence)}</div>` : ''}
+                <div class="criterion-feedback" style="margin-top: 6px; line-height: 1.5;">${escapeHtml(c.feedback)}</div>
+                ${c.evidence ? `<div class="criterion-evidence" style="margin-top: 6px;"><strong>Evidence:</strong> ${escapeHtml(c.evidence)}</div>` : ''}
+                ${deductionHtml}
+                ${fixHtml}
             `;
             criteriaList.appendChild(card);
         });
@@ -271,12 +311,23 @@ async function openStudentModal(studentName) {
             let criteriaHtml = '';
             if (details && details.criteria) {
                 criteriaHtml = `
-                    <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px;">
-                        ${details.criteria.map(c => `
-                            <span class="criterion-badge ${c.status === 'PASS' ? 'badge-pass' : (c.status === 'PARTIAL' ? 'badge-partial' : 'badge-fail')}" style="font-size: 0.72rem;">
-                                ${escapeHtml(c.title)}: ${c.earned_score}/${c.max_score}
-                            </span>
-                        `).join('')}
+                    <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+                        ${details.criteria.map(c => {
+                            const isPerf = c.earned_score >= c.max_score;
+                            return `
+                                <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <strong style="font-size: 0.82rem;">${escapeHtml(c.title)}</strong>
+                                        <span class="criterion-badge ${c.status === 'PASS' ? 'badge-pass' : (c.status === 'PARTIAL' ? 'badge-partial' : 'badge-fail')}" style="font-size: 0.72rem;">
+                                            ${c.earned_score}/${c.max_score} pts (${c.status})
+                                        </span>
+                                    </div>
+                                    <div style="font-size: 0.78rem; color: var(--text-muted);">${escapeHtml(c.feedback)}</div>
+                                    ${!isPerf && c.deduction_reason ? `<div style="font-size: 0.76rem; color: #f87171; margin-top: 4px;">⚠️ <strong>Deduction:</strong> ${escapeHtml(c.deduction_reason)}</div>` : ''}
+                                    ${!isPerf && c.fix_recommendation ? `<div style="font-size: 0.76rem; color: #60a5fa; margin-top: 2px;">💡 <strong>Fix:</strong> ${escapeHtml(c.fix_recommendation)}</div>` : ''}
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
                 `;
             }
