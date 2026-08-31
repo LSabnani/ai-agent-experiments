@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Tuple, Optional
 from core.models import Criterion, CriterionResult, EvaluationResult
 from core.code_analyzer import CodebaseSnapshot
 from core.dynamic_runner import DynamicRunner
-from core.config import get_api_key, get_model_name, load_env
+from core.config import get_api_key, get_model_name, get_fallback_model_name, load_env
 from core.telemetry import tracer
 
 REQUEST_TIMEOUT = int(os.environ.get("GRADER_TIMEOUT", "120"))
@@ -21,6 +21,7 @@ class MLEvaluator:
         self.spec_content = spec_content
         self.criteria = criteria
         self.model_name = model_name or get_model_name()
+        self.fallback_model_name = get_fallback_model_name()
         self.trace_id = trace_id or "adhoc_eval"
         
         # Tool / Skill: Codebase Snapshot
@@ -38,21 +39,21 @@ class MLEvaluator:
         api_key = get_api_key()
 
         if api_key:
-            # Try primary configured model
+            # 1. Try primary configured model
             try:
                 return self._evaluate_with_gemini_llm(api_key, self.model_name)
             except Exception as e:
-                print(f"Warning: LLM evaluation with model '{self.model_name}' failed ({e}).")
+                print(f"Warning: LLM evaluation with primary model '{self.model_name}' failed ({e}).")
                 
-                # If a custom/non-standard model failed, attempt automatic fallback to gemini-2.5-flash
-                if self.model_name not in ["gemini-2.5-flash", "gemini-2.5-flash-lite"]:
+                # 2. Try fallback model (gemini-3.5-flash)
+                if self.model_name != self.fallback_model_name:
                     try:
-                        print("Attempting fallback to 'gemini-2.5-flash'...")
-                        return self._evaluate_with_gemini_llm(api_key, "gemini-2.5-flash")
+                        print(f"Attempting fallback to '{self.fallback_model_name}'...")
+                        return self._evaluate_with_gemini_llm(api_key, self.fallback_model_name)
                     except Exception as fallback_err:
-                        print(f"Warning: Fallback model also failed ({fallback_err}), using intelligent heuristic engine.")
+                        print(f"Warning: Fallback model '{self.fallback_model_name}' also failed ({fallback_err}), using intelligent heuristic engine.")
 
-        # Heuristic Multi-Vector Evaluation Engine (Offline / Local fallback)
+        # 3. Heuristic Multi-Vector Evaluation Engine (Offline / Local fallback)
         return self._evaluate_with_heuristics()
 
     def _evaluate_with_gemini_llm(self, api_key: str, active_model: str) -> EvaluationResult:
@@ -267,12 +268,9 @@ Respond ONLY with a valid JSON object in the following format:
         target_files = re.findall(r"\b([a-zA-Z0-9_\-]+\.(?:csv|json|txt|log|sqlite|db))\b", full_text)
         for tf in target_files:
             tf_lower = tf.lower()
-            # If the criterion asks to store or log in a specific file
             if any(w in lower_desc for w in ["store", "log", "save", "write", "csv", "named", "record"]):
                 file_in_code = tf_lower in all_code_text
                 file_on_disk = any(tf_lower == os.path.basename(f).lower() for f in self.snapshot.files.keys())
-                
-                # Check for format module usage if csv
                 has_csv_handling = "import csv" in all_code_text or "csv.writer" in all_code_text or "to_csv" in all_code_text if "csv" in tf_lower else True
 
                 if not file_in_code and not file_on_disk:

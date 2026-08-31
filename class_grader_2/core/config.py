@@ -52,13 +52,23 @@ def get_api_key() -> Optional[str]:
 
 
 def get_model_name() -> str:
-    """Returns the model name from .env or environment, defaulting to gemini-2.5-flash."""
+    """Returns the primary model name from .env or environment."""
     load_env()
     model = (
         os.environ.get("GRADER_MODEL") or 
         os.environ.get("MODEL") or 
         os.environ.get("MODEL_NAME") or 
         os.environ.get("GEMINI_MODEL") or 
-        "gemini-2.5-flash"
+        "gemini-flash-latest"
     )
     return model
+
+
+def get_fallback_model_name() -> str:
+    """Returns the fallback model name, defaulting to gemini-3.5-flash."""
+    load_env()
+    return (
+        os.environ.get("FALLBACK_MODEL") or 
+        os.environ.get("FALLBACK_MODEL_NAME") or 
+        "gemini-3.5-flash"
+    )
