@@ -92,5 +92,18 @@ class TestGraderApp(unittest.TestCase):
             self.assertIn("The grader is not available at this time", str(e))
 
 
+    def test_spec_file_name_variants(self):
+        """Verify SpecParser finds SPECIFICATION.md, SPECIFICATIONS.md, SPEC.md, SPECS.md in upper/lower case."""
+        variants = ["SPECIFICATION.md", "SPECIFICATIONS.md", "SPEC.md", "SPECS.md", "specification.md", "specs.md", "spec.md"]
+        for v in variants:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                with open(os.path.join(tmpdir, v), "w", encoding="utf-8") as f:
+                    f.write("# Sample Spec\n### Requirements\n- Feature 1\n- Feature 2")
+                parser = SpecParser(tmpdir)
+                self.assertIsNotNone(parser.spec_file_path, f"Failed to find {v}")
+                self.assertEqual(os.path.basename(parser.spec_file_path).lower(), v.lower())
+                self.assertGreater(len(parser.parse_criteria()), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

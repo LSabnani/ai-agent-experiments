@@ -11,30 +11,57 @@ class SpecParser:
         self.scoring_file_path = scoring_file_path or self._find_scoring_file()
 
     def _find_spec_file(self) -> Optional[str]:
-        candidates = [
-            "SPECIFICATIONS.md",
-            "specifications.md",
-            "SPECIFICATION.md",
-            "specification.md",
-            "SPEC.md",
-            "spec.md",
-            "README.md"
+        if not os.path.exists(self.folder_path):
+            return None
+
+        # Prioritized pattern groups evaluated case-insensitively
+        spec_patterns = [
+            re.compile(r"^specifications?(\.(md|markdown|txt))?$", re.IGNORECASE),
+            re.compile(r"^specs?(\.(md|markdown|txt))?$", re.IGNORECASE),
+            re.compile(r"^requirements?(\.(md|markdown|txt))?$", re.IGNORECASE),
+            re.compile(r"^readme(\.(md|markdown|txt))?$", re.IGNORECASE),
         ]
-        for candidate in candidates:
-            path = os.path.join(self.folder_path, candidate)
-            if os.path.isfile(path):
-                return path
+
+        try:
+            entries = os.listdir(self.folder_path)
+        except Exception:
+            return None
+
+        # Check top-level folder first
+        for pattern in spec_patterns:
+            for entry in entries:
+                full_path = os.path.join(self.folder_path, entry)
+                if os.path.isfile(full_path) and pattern.match(entry):
+                    return full_path
+
+        # If not found directly in root, check subdirectories (max depth 2)
+        for pattern in spec_patterns:
+            for root, dirs, files in os.walk(self.folder_path):
+                # Don't recurse into hidden or git directories
+                dirs[:] = [d for d in dirs if not d.startswith('.') and d != 'node_modules' and d != '__pycache__']
+                for f in files:
+                    if pattern.match(f):
+                        return os.path.join(root, f)
+
         return None
 
     def _find_scoring_file(self) -> Optional[str]:
-        # 1. First priority: SCORING.md inside the target project folder
-        folder_candidates = [
-            os.path.join(self.folder_path, "SCORING.md"),
-            os.path.join(self.folder_path, "scoring.md")
+        scoring_patterns = [
+            re.compile(r"^scorings?(\.(md|markdown|txt))?$", re.IGNORECASE),
+            re.compile(r"^rubrics?(\.(md|markdown|txt))?$", re.IGNORECASE),
         ]
-        for candidate in folder_candidates:
-            if os.path.isfile(candidate):
-                return candidate
+
+        # 1. First priority: SCORING.md / RUBRIC.md inside the target project folder
+        if os.path.exists(self.folder_path):
+            try:
+                entries = os.listdir(self.folder_path)
+                for pattern in scoring_patterns:
+                    for entry in entries:
+                        full_path = os.path.join(self.folder_path, entry)
+                        if os.path.isfile(full_path) and pattern.match(entry):
+                            return full_path
+            except Exception:
+                pass
 
         # 2. Workspace root SCORING.md (apply only if relevant to the project or if project has matching architecture)
         root_candidates = [
@@ -43,13 +70,11 @@ class SpecParser:
         ]
         for candidate in root_candidates:
             if os.path.isfile(candidate):
-                # Check relevance to avoid applying multi-agent scoring to simple standalone scripts
                 try:
                     with open(candidate, "r", encoding="utf-8") as f:
                         scoring_text = f.read().lower()
                     spec_text = self.read_spec_content().lower()
                     
-                    # If root SCORING.md mentions specific concepts like ParallelAgent/LoopAgent, ensure spec or code relates
                     if "parallelagent" in scoring_text or "loopagent" in scoring_text or "critic_feedback" in scoring_text:
                         if any(k in spec_text for k in ["agent", "parallel", "loop", "critic", "pipeline", "itinerary", "scheduler"]):
                             return candidate
@@ -62,8 +87,7 @@ class SpecParser:
     def read_spec_content(self) -> str:
         if not self.spec_file_path:
             raise FileNotFoundError(
-                f"No SPECIFICATIONS.md found in folder '{self.folder_path}'. "
-                f"Please ensure a SPECIFICATIONS.md file is present."
+                f"No specification file (e.g. SPECIFICATION.md, SPECIFICATIONS.md, SPEC.md, SPECS.md, or README.md) found in folder '{self.folder_path}'."
             )
         with open(self.spec_file_path, "r", encoding="utf-8") as f:
             return f.read()

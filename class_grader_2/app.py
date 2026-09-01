@@ -150,7 +150,8 @@ async def get_traces(limit: int = 50):
 
 @app.get("/api/available-folders")
 async def list_available_folders():
-    """Utility endpoint to find folders with SPECIFICATIONS.md to help user quickly test."""
+    """Utility endpoint to find folders with specifications to help user quickly test."""
+    from core.spec_parser import SpecParser
     samples = []
     search_dirs = [
         os.path.join(BASE_DIR, "sample_submissions", "*"),
@@ -159,11 +160,12 @@ async def list_available_folders():
     for pattern in search_dirs:
         for p in glob.glob(pattern):
             if os.path.isdir(p):
-                has_spec = any(os.path.isfile(os.path.join(p, sf)) for sf in ["SPECIFICATIONS.md", "specifications.md", "SPEC.md", "README.md"])
-                if has_spec:
+                parser = SpecParser(p)
+                if parser.spec_file_path:
                     samples.append({
                         "name": os.path.basename(p),
-                        "path": p
+                        "path": p,
+                        "spec_file": os.path.basename(parser.spec_file_path)
                     })
     return {"folders": samples}
 
