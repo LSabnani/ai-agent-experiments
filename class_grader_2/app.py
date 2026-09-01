@@ -1,8 +1,9 @@
 import os
 import glob
+import re
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -10,6 +11,7 @@ from core.grader import Grader
 from core.models import GradeRequest, SubmissionRecord, StudentSummary
 from core.storage import ScoreStorage, DEFAULT_SCORES_PATH
 from core.telemetry import tracer
+from core.exporter import ReportExporter
 
 app = FastAPI(title="Agentic ML Specification Grader", version="2.0.0")
 
@@ -46,8 +48,10 @@ async def grade_student_app(payload: GradeRequest):
             subfolder=payload.subfolder
         )
         return sub_record
-    except (FileNotFoundError, NotADirectoryError, ValueError, RuntimeError) as e:
+    except (FileNotFoundError, NotADirectoryError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Grading error: {str(e)}")
 
@@ -76,6 +80,66 @@ async def get_submission_detail(submission_id: str):
     if not sub:
         raise HTTPException(status_code=404, detail="Submission not found.")
     return sub
+
+
+@app.get("/api/submissions/{submission_id}/download/txt")
+async def download_submission_text(submission_id: str):
+    """Downloads evaluation report as a formatted Plain Text (.txt) file."""
+    sub = storage.get_submission_by_id(submission_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found.")
+    
+    text_content = ReportExporter.generate_text_report(sub)
+    safe_name = re.sub(r'[^a-zA-Z0-9_-]', '_', sub.student_name)
+    filename = f"{safe_name}_grade_report.txt"
+    encoded_bytes = text_content.encode("utf-8")
+    
+    return Response(
+        content=encoded_bytes,
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(encoded_bytes)),
+            "Cache-Control": "no-cache"
+        }
+    )
+
+
+@app.get("/api/submissions/{submission_id}/download/pdf")
+async def download_submission_pdf(submission_id: str):
+    """Downloads evaluation report as a styled PDF (.pdf) file."""
+    sub = storage.get_submission_by_id(submission_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found.")
+    
+    try:
+        pdf_bytes = ReportExporter.generate_pdf_report(sub)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {str(e)}")
+
+    safe_name = re.sub(r'[^a-zA-Z0-9_-]', '_', sub.student_name)
+    filename = f"{safe_name}_grade_report.pdf"
+    
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_bytes)),
+            "Cache-Control": "no-cache"
+        }
+    )
+
+
+@app.get("/api/submissions/{submission_id}/report", response_class=HTMLResponse)
+async def view_submission_report_html(submission_id: str):
+    """Renders formatted HTML grade report for easy browser viewing and 1-click Print to PDF."""
+    sub = storage.get_submission_by_id(submission_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found.")
+    
+    html_content = ReportExporter.generate_html_report(sub)
+    return HTMLResponse(content=html_content)
 
 
 @app.get("/api/traces")

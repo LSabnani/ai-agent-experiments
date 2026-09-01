@@ -1,20 +1,21 @@
 # ML Specification Grader
 
-An intelligent Python-based application that evaluates student coding projects against requirements specified in a `SPECIFICATIONS.md` file. It computes a compliance score (0–100%), persists submission records as single-line JSON entries in `outputs/scores.json`, records detailed Gemini telemetry traces, and provides both a **Submit & Grade View**, an **Instructor Dashboard**, and a **Gemini Traces Viewer**.
+An intelligent Python-based application that evaluates student coding projects against requirements specified in a `SPECIFICATIONS.md` file. It computes a compliance score (0–100%), persists submission records as single-line JSON entries in `outputs/scores.json`, records detailed Gemini telemetry traces, and provides both a **Submit & Grade View**, an **Instructor Dashboard**, **PDF / Text Grade Reports**, and a **Gemini Traces Viewer**.
 
 ---
 
 ## Features
 
-- **Automated Specification Evaluation**: Parses `SPECIFICATIONS.md` from the target folder to extract functional requirements, functions/methods, error handling, and test requirements.
-- **Multi-Vector Code Inspection**: Analyzes AST symbols, file presence, code syntax, and executes dynamic unit tests (`unittest`/`pytest`) in an isolated subprocess.
-- **Gemini LLM Semantic Evaluation**: Evaluates architecture, edge cases, multi-agent frameworks, and state management using the Gemini API (model and API key loaded from `.env`).
-- **Telemetry & Trace Logging**: Full audit trail of `MODEL_CALL`, `MODEL_RESPONSE`, `SKILL_USAGE`, and `TOOL_INVOCATION` events with latency ms and token counts saved to `outputs/gemini_traces.jsonl` and `outputs/traces/`.
+- **Automated Specification Evaluation**: Parses `SPECIFICATIONS.md` and rubric from `SCORING.md` from the target folder to extract functional requirements, functions/methods, error handling, and test requirements.
+- **GitHub Repository & Subfolder Support**: Directly takes GitHub repository URLs (e.g. `https://github.com/owner/repo` or `https://github.com/owner/repo/tree/main/subfolder`) or local folders.
+- **Gemini LLM Semantic Evaluation**: Evaluates architecture, edge cases, multi-agent frameworks, and state management using the Gemini API. Displays the exact **AI Model Name** used for evaluation in all reports.
+- **Downloadable PDF & Text Reports**: Students and instructors can download full evaluation reports as styled **`.pdf`** or formatted **`.txt`** files directly from the web interface or CLI.
+- **Granular Deductions & Actionable Fix Guidance**: For any non-perfect score, provides quantified deduction reasons (`⚠️ Deduction`) and step-by-step remediation advice (`💡 How to Fix`).
+- **Telemetry & Trace Logging**: Full audit trail of `MODEL_CALL`, `MODEL_RESPONSE`, `SKILL_USAGE`, and `TOOL_INVOCATION` events saved to `outputs/gemini_traces.jsonl` and `outputs/traces/`.
 - **Single-Line JSON Persistence (`outputs/scores.json`)**: Every submission is appended as a standalone single-line JSON record.
 - **Instructor Dashboard**:
-  - Displays a summary table of all students with their **highest score**, **latest submission score**, and **latest submission timestamp**.
-  - **Student Drill-Down**: Clicking any student's name opens a modal displaying all historical submissions from that student.
-- **Dual Interface**: Includes both a modern, responsive Web Dashboard and a full-featured Command Line Interface (CLI).
+  - Displays a summary table of all students with their **highest score**, **latest score**, **model used**, and **latest submission timestamp**.
+  - **Student Drill-Down**: Clicking any student's name opens a modal displaying all historical submissions with quick download buttons.
 
 ---
 
@@ -28,13 +29,15 @@ An intelligent Python-based application that evaluates student coding projects a
 2. **Install Dependencies**:
    ```bash
    pip install -r requirements.txt
+   pip install reportlab
    ```
 
 3. **Configure Environment (`.env`)**:
    Create or edit `.env` with your Google API Key and preferred model:
    ```env
    GOOGLE_API_KEY="your_api_key_here"
-   MODEL="gemini-2.5-flash"
+   MODEL="gemini-3.5-flash"
+   FALLBACK_MODEL="gemini-3.5-flash"
    ```
 
 ---
@@ -57,59 +60,41 @@ Once running, open your web browser at:
 ### 1. Submit & Grade View
 1. Navigate to the **"Submit & Grade"** tab.
 2. Enter the **Student Full Name** (e.g. `Alice Johnson`).
-3. Enter the **Project Folder Path** containing `SPECIFICATIONS.md` (or click one of the quick sample chips).
+3. Enter either a **Local Folder Path** or a **GitHub URL** (e.g. `https://github.com/owner/repo/tree/main/my-apps/travel-Itinerary-builder`).
 4. Click **"Run ML Evaluation"**.
-5. View the real-time score dial, letter grade, strengths, deductions, itemized criteria breakdown, and execution logs.
-6. The submission is automatically saved to `outputs/scores.json`.
+5. View the real-time score, model name badge (`🤖 Model: gemini-3.5-flash`), criteria breakdown, and deduction guidance.
+6. Click **"Download PDF (.pdf)"** or **"Download Text (.txt)"** to save the evaluation report.
 
 ### 2. Instructor Dashboard
-1. Navigate to the **"Instructor View"** tab in the top navigation bar.
-2. Review class statistics: Total Students, Total Submissions, and Class Top Score.
-3. Review the leaderboard table showing each student's highest score and latest submission.
-4. **Click any student's name** to view all past submissions from that student.
-
-### 3. Gemini Telemetry Traces
-1. Navigate to the **"Gemini Traces"** tab.
-2. View real-time logs of all `MODEL_CALL`, `MODEL_RESPONSE`, `SKILL_USAGE`, and `TOOL_INVOCATION` events with exact durations, timestamps, and payload details.
+1. Navigate to the **"Instructor View"** tab.
+2. Review the class leaderboard table showing each student's highest score, latest score, and model used.
+3. **Click any student's name** to open their full submission history and download past reports.
 
 ---
 
 ## Using the Command Line Interface (CLI)
 
-### Grade a Student Project
+### Grade a Student Project & Export PDF / TXT
 ```bash
+# Grade and view in terminal
 python3 cli.py --student "Alice Johnson" --folder "sample_submissions/student_alice_perfect"
+
+# Grade and export to PDF and TXT
+python3 cli.py --student "Alice Johnson" --folder "sample_submissions/student_alice_perfect" --export-pdf "report.pdf" --export-txt "report.txt"
+
+# Grade from a GitHub repository link
+python3 cli.py --student "Alice Johnson" --folder "https://github.com/owner/repo/tree/main/assignment1"
 ```
 
-### View Instructor Summary Table (Highest & Latest Scores)
+### View Instructor Summary Table
 ```bash
 python3 cli.py --list-students
 ```
 
-### View Submission History for a Specific Student
+### View Submission History for a Student
 ```bash
 python3 cli.py --student-history "Alice Johnson"
 ```
-
-### View Gemini Telemetry Traces
-```bash
-python3 cli.py --view-traces
-```
-
-### Output Results as JSON
-```bash
-python3 cli.py --student "Bob Smith" --folder "sample_submissions/student_bob_partial" --json
-```
-
----
-
-## Output Files & Telemetry Logs
-
-All evaluation results and trace logs are saved inside the `outputs/` folder:
-
-- **`outputs/scores.json`**: Single-line JSON submission records.
-- **`outputs/gemini_traces.jsonl`**: Real-time event stream of Gemini model calls, responses, tool calls, and skill usages.
-- **`outputs/traces/<trace_id>.json`**: Comprehensive individual trace report generated per grading run.
 
 ---
 

@@ -1,5 +1,7 @@
 // ML Spec Grader Frontend Logic
 
+let currentSubmission = null;
+
 function switchTab(tab) {
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
@@ -66,7 +68,7 @@ async function handleGradeSubmit(event) {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.detail || 'Grading failed. Please check repository URL or folder path.');
+            throw new Error(data.detail || 'The grader is not available at this time. Please check repository URL or folder path.');
         }
 
         // Render Result
@@ -82,6 +84,7 @@ async function handleGradeSubmit(event) {
 }
 
 function renderEvaluationResult(submission) {
+    currentSubmission = submission;
     const placeholder = document.getElementById('result-placeholder');
     const resultContent = document.getElementById('result-content');
     const details = submission.evaluation_details;
@@ -94,6 +97,13 @@ function renderEvaluationResult(submission) {
     document.getElementById('res-student-title').textContent = `${submission.student_name} Evaluation`;
     document.getElementById('res-summary').textContent = details ? details.summary : 'Evaluation complete.';
     document.getElementById('res-folder-tag').textContent = submission.folder_name;
+
+    // Model Used Tag
+    const modelName = submission.model_used || (details && details.model_used) || 'Gemini AI';
+    const modelTag = document.getElementById('res-model-tag');
+    if (modelTag) {
+        modelTag.textContent = `🤖 Model: ${modelName}`;
+    }
 
     // Strengths
     const strengthsList = document.getElementById('res-strengths');
@@ -174,10 +184,38 @@ function renderEvaluationResult(submission) {
     }
 }
 
+function viewCurrentReport() {
+    if (!currentSubmission || !currentSubmission.id) {
+        alert('Please run a grading evaluation first to view the report.');
+        return;
+    }
+    const endpoint = `/api/submissions/${currentSubmission.id}/report`;
+    window.open(endpoint, '_blank');
+}
+
+function downloadCurrentReport(format) {
+    if (!currentSubmission || !currentSubmission.id) {
+        alert('Please run a grading evaluation first to download the report.');
+        return;
+    }
+    
+    // Direct native browser download without blob timer interruption
+    const endpoint = `/api/submissions/${currentSubmission.id}/download/${format}`;
+    const safeName = (currentSubmission.student_name || 'student').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const a = document.createElement('a');
+    a.href = endpoint;
+    a.download = `${safeName}_grade_report.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+        if (a.parentNode) document.body.removeChild(a);
+    }, 500);
+}
+
 // Load Instructor Leaderboard & Student Summaries
 async function loadInstructorData() {
     const tbody = document.getElementById('instructor-table-body');
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center">Loading student records...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center">Loading student records...</td></tr>';
 
     try {
         const response = await fetch('/api/instructor/students');
@@ -192,7 +230,7 @@ async function loadInstructorData() {
         document.getElementById('stat-top-score').textContent = `${topScore.toFixed(1)}%`;
 
         if (students.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 30px;">No submissions recorded yet in outputs/scores.json.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding: 30px;">No submissions recorded yet in outputs/scores.json.</td></tr>';
             return;
         }
 
@@ -200,6 +238,7 @@ async function loadInstructorData() {
         students.forEach(s => {
             const row = document.createElement('tr');
             const formattedTime = new Date(s.latest_submission_time).toLocaleString();
+            const modelName = s.latest_model_used || 'Gemini AI';
             
             row.innerHTML = `
                 <td>
@@ -218,11 +257,16 @@ async function loadInstructorData() {
                         ${s.latest_score.toFixed(1)}% (${s.latest_grade})
                     </span>
                 </td>
+                <td>
+                    <span style="font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; background: rgba(99, 102, 241, 0.1); color: #818cf8; padding: 2px 6px; border-radius: 4px;">
+                        ${escapeHtml(modelName)}
+                    </span>
+                </td>
                 <td><small style="color: var(--text-muted);">${formattedTime}</small></td>
                 <td><span style="font-weight: 700;">${s.total_submissions}</span></td>
                 <td>
                     <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="openStudentModal('${escapeHtml(s.student_name)}')">
-                        View Submissions
+                        View & Download
                     </button>
                 </td>
             `;
@@ -230,7 +274,7 @@ async function loadInstructorData() {
         });
 
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="color: var(--danger);">Failed to load instructor data: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="color: var(--danger);">Failed to load instructor data: ${err.message}</td></tr>`;
     }
 }
 
@@ -305,6 +349,7 @@ async function openStudentModal(studentName) {
         submissions.forEach((sub, idx) => {
             const timeStr = new Date(sub.timestamp).toLocaleString();
             const details = sub.evaluation_details;
+            const modelName = sub.model_used || (details && details.model_used) || 'Gemini AI';
             const item = document.createElement('div');
             item.className = 'history-item';
             
@@ -339,8 +384,22 @@ async function openStudentModal(studentName) {
                             ${sub.score.toFixed(1)}% (${sub.letter_grade})
                         </span>
                         <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 8px;">Submission #${submissions.length - idx}</span>
+                        <span style="margin-left: 8px; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; background: rgba(99,102,241,0.15); color: #818cf8; padding: 2px 6px; border-radius: 4px;">
+                            ${escapeHtml(modelName)}
+                        </span>
                     </div>
-                    <span style="font-size: 0.8rem; color: var(--text-muted);">${timeStr}</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">${timeStr}</span>
+                        <a href="/api/submissions/${sub.id}/report" target="_blank" class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.75rem; color: #c7d2fe;">
+                            🖨️ View/Print
+                        </a>
+                        <a href="/api/submissions/${sub.id}/download/pdf" class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;">
+                            PDF
+                        </a>
+                        <a href="/api/submissions/${sub.id}/download/txt" class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;">
+                            TXT
+                        </a>
+                    </div>
                 </div>
                 <div class="history-folder">Folder: ${escapeHtml(sub.folder_name)}</div>
                 ${details ? `<div class="history-summary">${escapeHtml(details.summary)}</div>` : ''}

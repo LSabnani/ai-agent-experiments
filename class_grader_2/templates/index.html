@@ -126,7 +126,24 @@
                                     <p id="res-summary" class="score-summary-text"></p>
                                     <div class="meta-tags">
                                         <span class="tag tag-folder" id="res-folder-tag"></span>
+                                        <span class="tag tag-model" id="res-model-tag" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3);">🤖 Model: --</span>
                                         <span class="tag tag-stored">✓ Saved to outputs/scores.json</span>
+                                    </div>
+                                    
+                                    <!-- Download & View Report Actions -->
+                                    <div class="download-actions" style="margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap;">
+                                        <button id="btn-view-report" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.4); color: #c7d2fe;" onclick="viewCurrentReport()">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                                            🖨️ View & Print to PDF
+                                        </button>
+                                        <button id="btn-download-pdf" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;" onclick="downloadCurrentReport('pdf')">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                            Download PDF (.pdf)
+                                        </button>
+                                        <button id="btn-download-txt" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;" onclick="downloadCurrentReport('txt')">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                            Download Text (.txt)
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -201,6 +218,7 @@
                                     <th>Student Name (Click to View All)</th>
                                     <th>Highest Score</th>
                                     <th>Latest Submission Score</th>
+                                    <th>Model Used</th>
                                     <th>Latest Submission Time</th>
                                     <th>Total Submissions</th>
                                     <th>Action</th>
@@ -208,7 +226,7 @@
                             </thead>
                             <tbody id="instructor-table-body">
                                 <tr>
-                                    <td colspan="6" class="text-center">Loading student records...</td>
+                                    <td colspan="7" class="text-center">Loading student records...</td>
                                 </tr>
                             </tbody>
                         </table>

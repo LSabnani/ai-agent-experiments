@@ -1,4 +1,5 @@
 import os
+import re
 import time
 from typing import Tuple, Optional
 from core.models import EvaluationResult, SubmissionRecord
@@ -11,6 +12,7 @@ from core.git_fetcher import GitFetcher
 
 class Grader:
     def __init__(self, scores_file: str = DEFAULT_SCORES_PATH, scoring_file: Optional[str] = None):
+        self.scores_file = scores_file
         self.storage = ScoreStorage(scores_file)
         self.scoring_file = scoring_file
 
@@ -73,10 +75,29 @@ class Grader:
             folder_name=folder_input,
             score=evaluation_result.percentage_score,
             letter_grade=evaluation_result.letter_grade,
+            model_used=evaluation_result.model_used,
             evaluation_details=evaluation_result
         )
 
-        # 6. Finish Trace
+        # 6. Auto-save PDF & TXT copies in outputs/reports/
+        try:
+            from core.exporter import ReportExporter
+            reports_dir = os.path.join(os.path.dirname(self.scores_file), "reports")
+            os.makedirs(reports_dir, exist_ok=True)
+            safe_name = re.sub(r'[^a-zA-Z0-9_-]', '_', student_name)
+            txt_path = os.path.join(reports_dir, f"{safe_name}_grade_report.txt")
+            pdf_path = os.path.join(reports_dir, f"{safe_name}_grade_report.pdf")
+            
+            with open(txt_path, "w", encoding="utf-8") as f:
+                f.write(ReportExporter.generate_text_report(submission_record))
+            
+            pdf_bytes = ReportExporter.generate_pdf_report(submission_record)
+            with open(pdf_path, "wb") as f:
+                f.write(pdf_bytes)
+        except Exception as export_err:
+            print(f"Warning: Failed to auto-save report copies in outputs/reports/: {export_err}")
+
+        # 7. Finish Trace
         tracer.finish_trace(
             trace_id=trace_id,
             overall_score=evaluation_result.percentage_score,

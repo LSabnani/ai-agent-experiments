@@ -217,6 +217,7 @@ Respond ONLY with a valid JSON object in the following format:
             percentage_score=percentage,
             letter_grade=letter_grade,
             summary=result_json.get("overall_summary", f"Model ({active_model}) evaluated {len(self.criteria)} criteria."),
+            model_used=active_model,
             criteria=criterion_results,
             strengths=result_json.get("strengths", [])[:8],
             deductions=result_json.get("deductions", [])[:8],

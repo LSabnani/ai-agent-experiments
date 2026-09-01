@@ -35,6 +35,7 @@ class EvaluationResult(BaseModel):
     percentage_score: float
     letter_grade: str
     summary: str
+    model_used: Optional[str] = None
     criteria: List[CriterionResult] = []
     strengths: List[str] = []
     deductions: List[str] = []
@@ -48,6 +49,7 @@ class SubmissionRecord(BaseModel):
     folder_name: str
     score: float
     letter_grade: str
+    model_used: Optional[str] = None
     timestamp: str = Field(default_factory=get_utc_now_iso)
     evaluation_details: Optional[EvaluationResult] = None
 
@@ -61,6 +63,7 @@ class StudentSummary(BaseModel):
     latest_score: float
     latest_grade: str
     latest_folder: str
+    latest_model_used: Optional[str] = None
 
 
 class GradeRequest(BaseModel):
