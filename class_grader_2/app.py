@@ -39,13 +39,26 @@ async def favicon():
     return JSONResponse(status_code=204, content={})
 
 
+@app.get("/api/config/submissions")
+async def get_submissions_config():
+    """Returns class and assignment configurations from SUBMISSIONS.yaml."""
+    from core.submissions_config import SubmissionsConfig
+    cfg = SubmissionsConfig()
+    return {
+        "classes": cfg.get_classes(),
+        "config": cfg.get_full_config()
+    }
+
+
 @app.post("/api/grade", response_model=SubmissionRecord)
 async def grade_student_app(payload: GradeRequest):
     try:
         sub_record, _ = grader.grade_submission(
             student_name=payload.student_name,
             folder_name=payload.folder_name,
-            subfolder=payload.subfolder
+            subfolder=payload.subfolder,
+            class_name=payload.class_name,
+            assignment_name=payload.assignment_name
         )
         return sub_record
     except (FileNotFoundError, NotADirectoryError, ValueError) as e:

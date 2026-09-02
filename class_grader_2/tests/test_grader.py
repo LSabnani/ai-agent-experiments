@@ -102,7 +102,159 @@ class TestGraderApp(unittest.TestCase):
                 parser = SpecParser(tmpdir)
                 self.assertIsNotNone(parser.spec_file_path, f"Failed to find {v}")
                 self.assertEqual(os.path.basename(parser.spec_file_path).lower(), v.lower())
-                self.assertGreater(len(parser.parse_criteria()), 0)
+    def test_submissions_config_and_mandatory_criteria(self):
+        """Verify SUBMISSIONS.yaml loads and mandatory criteria are placed at top of list."""
+        from core.submissions_config import SubmissionsConfig
+        
+        yaml_content = """
+Agent Engineering:
+  my_first_agent_app:
+    - Code Uses AI Agent: 30%
+    - Code Uses Skills in Agent: 20%
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(yaml_content)
+            yaml_path = f.name
+
+        try:
+            cfg = SubmissionsConfig(yaml_path)
+            self.assertIn("Agent Engineering", cfg.get_classes())
+            self.assertIn("my_first_agent_app", cfg.get_assignments("Agent Engineering"))
+            crits = cfg.get_criteria("Agent Engineering", "my_first_agent_app")
+            self.assertEqual(len(crits), 2)
+            self.assertEqual(crits[0]["weight_percent"], 30.0)
+            self.assertEqual(crits[1]["weight_percent"], 20.0)
+
+            # Test parser prepending
+            with tempfile.TemporaryDirectory() as tmpdir:
+                with open(os.path.join(tmpdir, "SPECIFICATIONS.md"), "w") as sf:
+                    sf.write("# Spec\n### Tasks\n- Task 1\n- Task 2")
+                
+                # Mock submissions_config in spec_parser
+                from core import spec_parser
+                original_cfg = spec_parser.submissions_config
+                spec_parser.submissions_config = cfg
+
+                try:
+                    parser = SpecParser(tmpdir, class_name="Agent Engineering", assignment_name="my_first_agent_app")
+                    parsed_crits = parser.parse_criteria()
+                    
+                    # Mandatory criteria must be at the very top
+                    self.assertTrue(parsed_crits[0].is_mandatory)
+                    self.assertIn("Code Uses AI Agent", parsed_crits[0].title)
+                    self.assertEqual(parsed_crits[0].weight, 30.0)
+                    
+                    self.assertTrue(parsed_crits[1].is_mandatory)
+                    self.assertIn("Code Uses Skills in Agent", parsed_crits[1].title)
+                    self.assertEqual(parsed_crits[1].weight, 20.0)
+                finally:
+                    spec_parser.submissions_config = original_cfg
+        finally:
+            if os.path.exists(yaml_path):
+                os.remove(yaml_path)
+
+
+    def test_script_ast_evidence_analysis(self):
+        """Verify CodebaseSnapshot extracts script evidence for AI Agent calls, Skills, and RAG."""
+        from core.code_analyzer import CodebaseSnapshot
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # 1. Python script with AI Agent call and Tool registration
+            py_code = """
+import os
+from google.genai import types
+from google.genai import Client
+
+class TravelPlannerAgent:
+    def __init__(self):
+        self.client = Client()
+    
+    def generate_plan(self, prompt: str):
+        return self.client.models.generate_content(
+            model="gemini-2.5",
+            contents=prompt,
+            config=types.GenerateContentConfig(tools=[self.weather_tool])
+        )
+
+    def weather_tool(self, city: str):
+        return {"temp": "72F"}
+"""
+            with open(os.path.join(tmpdir, "agent_pipeline.py"), "w") as f:
+                f.write(py_code)
+
+            # 2. Skill folder with SKILL.md
+            skill_dir = os.path.join(tmpdir, "skills", "weather-fetcher")
+            os.makedirs(skill_dir, exist_ok=True)
+            with open(os.path.join(skill_dir, "SKILL.md"), "w") as f:
+                f.write("---\nname: weather-fetcher\ndescription: Fetches city weather\n---\n# Instructions")
+
+            snap = CodebaseSnapshot(tmpdir)
+            
+            # Check AI Agent evidence
+            self.assertTrue(snap.has_genuine_ai_agent)
+            self.assertGreater(len(snap.genuine_ai_calls), 0)
+
+            # Check Skills evidence
+            self.assertGreater(len(snap.skills_evidence), 0)
+            skill_types = [e["type"] for e in snap.skills_evidence]
+            self.assertIn("SKILL_FILE", skill_types)
+
+            report = snap.get_deep_analysis_report()
+            self.assertIn("GENUINE AI MODEL & LLM CALLS FOUND", report)
+
+    def test_pseudo_agent_classes_rejection(self):
+        """Verify that plain Python classes named 'Agent' without LLM/AI model calls are NOT recognized as AI Agents."""
+        from core.code_analyzer import CodebaseSnapshot
+        with tempfile.TemporaryDirectory() as tmpdir:
+            py_code = """
+class WeatherAgent:
+    def __init__(self):
+        self.data = {"sunny": 75}
+    def run(self, city: str):
+        return {"temp": self.data.get("sunny", 70)}
+
+class CalendarAgent:
+    def run(self):
+        return ["event 1"]
+"""
+            with open(os.path.join(tmpdir, "weather.py"), "w") as f:
+                f.write(py_code)
+
+            snap = CodebaseSnapshot(tmpdir)
+            self.assertFalse(snap.has_genuine_ai_agent, "Plain Python classes without LLM calls must not qualify as AI agents")
+            self.assertEqual(len(snap.genuine_ai_calls), 0)
+            self.assertGreater(len(snap.pseudo_agent_classes), 0)
+
+    def test_popular_ai_services_audit(self):
+        """Verify CodebaseSnapshot audits Google Gemini and OpenAI for both import and calling/usage."""
+        from core.code_analyzer import CodebaseSnapshot
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Code importing AND using Gemini
+            gemini_code = """
+import os
+from google import genai
+
+def run_gemini():
+    client = genai.Client()
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents="Plan a trip"
+    )
+    return response.text
+"""
+            with open(os.path.join(tmpdir, "gemini_service.py"), "w") as f:
+                f.write(gemini_code)
+
+            snap = CodebaseSnapshot(tmpdir)
+            gemini_audit = snap.ai_services_audit["Google Gemini"]
+            self.assertTrue(gemini_audit["imported"], "Expected Google Gemini to be marked as imported")
+            self.assertTrue(gemini_audit["used"], "Expected Google Gemini to be marked as used")
+            self.assertGreater(len(gemini_audit["import_sites"]), 0)
+            self.assertGreater(len(gemini_audit["call_sites"]), 0)
+
+            # OpenAI should not be imported or used
+            openai_audit = snap.ai_services_audit["OpenAI / OpenAI Agents"]
+            self.assertFalse(openai_audit["imported"])
+            self.assertFalse(openai_audit["used"])
 
 
 if __name__ == "__main__":

@@ -6,7 +6,9 @@ An intelligent Python-based application that evaluates student coding projects a
 
 ## Features
 
-- **Automated Specification Evaluation**: Parses `SPECIFICATIONS.md` and rubric from `SCORING.md` from the target folder to extract functional requirements, functions/methods, error handling, and test requirements.
+- **Automated Specification Evaluation**: Parses `SPECIFICATIONS.md` in the submission folder (student repository) to extract functional requirements, functions/methods, error handling, and test requirements.
+- **Gemini LLM Rubrics**: Uses Gemini to evaluate the student's implementation against the rubrics defined in `SCORING.md`. This is where the "intelligence" of the grading comes from. It evaluates architecture, edge cases, multi-agent frameworks, and state management using the Gemini API. Displays the exact **AI Model Name** used for evaluation in all reports.
+- **Mandatory Requirements**: For the assignments are configured in `SUBMISSIONS.yaml` file in the grader app. Missing an AI Agent automatically deducts a percentage of the total score.
 - **GitHub Repository & Subfolder Support**: Directly takes GitHub repository URLs (e.g. `https://github.com/owner/repo` or `https://github.com/owner/repo/tree/main/subfolder`) or local folders.
 - **Gemini LLM Semantic Evaluation**: Evaluates architecture, edge cases, multi-agent frameworks, and state management using the Gemini API. Displays the exact **AI Model Name** used for evaluation in all reports.
 - **Downloadable PDF & Text Reports**: Students and instructors can download full evaluation reports as styled **`.pdf`** or formatted **`.txt`** files directly from the web interface or CLI.
@@ -59,13 +61,24 @@ Once running, open your web browser at:
 
 ### 1. Submit & Grade View
 1. Navigate to the **"Submit & Grade"** tab.
-2. Enter the **Student Full Name** (e.g. `Alice Johnson`).
-3. Enter either a **Local Folder Path** or a **GitHub URL** (e.g. `https://github.com/owner/repo/tree/main/my-apps/travel-Itinerary-builder`).
-4. Click **"Run ML Evaluation"**.
-5. View the real-time score, model name badge (`🤖 Model: gemini-3.5-flash`), criteria breakdown, and deduction guidance.
-6. Click **"Download PDF (.pdf)"** or **"Download Text (.txt)"** to save the evaluation report.
+2. Select the **Course / Class** and **Assignment** from the dropdowns (dynamically loaded from `SUBMISSIONS.yaml`).
+3. Enter the **Student Full Name** (e.g. `Alice Johnson`).
+4. Enter either a **Local Folder Path** or a **GitHub URL** (e.g. `https://github.com/owner/repo/tree/main/my-apps/travel-Itinerary-builder`).
+5. Click **"Run ML Evaluation"**.
+6. View the real-time score, mandatory criteria at the top of the breakdown, model badge (`🤖 Model: gemini-3.5-flash`), and deficiency deduction alerts.
+7. Click **"Download PDF (.pdf)"**, **"Download Text (.txt)"**, or **"🖨️ View & Print to PDF"**.
 
-### 2. Instructor Dashboard
+### 2. Mandatory Criteria in `SUBMISSIONS.yaml`
+Define class assignments and mandatory penalty criteria in `SUBMISSIONS.yaml`:
+```yaml
+Agent Engineering:
+  My AI Agent Assignments:
+    - Code Uses AI Agent: 30%
+    - Code Uses Skills in Agent: 20%
+```
+- Missing an AI Agent automatically subtracts 30% from the grade.
+- Missing Agent Skills automatically subtracts 20% from the grade.
+- Deficiencies are prominently flagged at the top of the **Grading Summary** and the **Criteria Breakdown**.
 1. Navigate to the **"Instructor View"** tab.
 2. Review the class leaderboard table showing each student's highest score, latest score, and model used.
 3. **Click any student's name** to open their full submission history and download past reports.

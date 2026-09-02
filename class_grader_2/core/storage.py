@@ -34,6 +34,8 @@ class ScoreStorage:
 
     def add_submission(self, student_name: str, folder_name: str, score: float, 
                        letter_grade: str, model_used: Optional[str] = None,
+                       class_name: Optional[str] = None,
+                       assignment_name: Optional[str] = None,
                        evaluation_details: Optional[EvaluationResult] = None) -> SubmissionRecord:
         record = SubmissionRecord(
             id=str(uuid.uuid4()),
@@ -42,6 +44,8 @@ class ScoreStorage:
             score=round(score, 2),
             letter_grade=letter_grade,
             model_used=model_used or (evaluation_details.model_used if evaluation_details else None),
+            class_name=class_name or (evaluation_details.class_name if evaluation_details else None),
+            assignment_name=assignment_name or (evaluation_details.assignment_name if evaluation_details else None),
             timestamp=get_utc_now_iso(),
             evaluation_details=evaluation_details
         )
@@ -117,6 +121,8 @@ class ScoreStorage:
                 latest_score=latest_sub.score,
                 latest_grade=latest_sub.letter_grade,
                 latest_folder=latest_sub.folder_name,
+                latest_class=latest_sub.class_name,
+                latest_assignment=latest_sub.assignment_name,
                 latest_model_used=latest_sub.model_used or (latest_sub.evaluation_details.model_used if latest_sub.evaluation_details else None)
             )
             summaries.append(summary)

@@ -17,7 +17,9 @@ REQUEST_TIMEOUT = int(os.environ.get("GRADER_TIMEOUT", "120"))
 class MLEvaluator:
     def __init__(self, folder_path: str, spec_content: str, criteria: List[Criterion], 
                  model_name: Optional[str] = None, trace_id: Optional[str] = None,
-                 scoring_content: Optional[str] = None):
+                 scoring_content: Optional[str] = None,
+                 class_name: Optional[str] = None,
+                 assignment_name: Optional[str] = None):
         self.folder_path = folder_path
         self.spec_content = spec_content
         self.criteria = criteria
@@ -25,6 +27,8 @@ class MLEvaluator:
         self.fallback_model_name = get_fallback_model_name()
         self.trace_id = trace_id or "adhoc_eval"
         self.scoring_content = scoring_content
+        self.class_name = class_name
+        self.assignment_name = assignment_name
         
         # Tool / Skill: Codebase Snapshot
         snap_start = time.time()
@@ -61,35 +65,59 @@ class MLEvaluator:
         raise RuntimeError("The grader is not available at this time. Please try again later.")
 
     def _evaluate_with_gemini_llm(self, api_key: str, active_model: str) -> EvaluationResult:
-        """Evaluates compliance by prompting Gemini with rich criteria details, deductions, and fix recommendations."""
-        code_summary = self.snapshot.get_summary_text(max_length=20000)
+        """Evaluates compliance by prompting Gemini with deep script AST evidence, criteria details, deductions, and fix recommendations."""
+        code_summary = self.snapshot.get_summary_text(max_length=25000)
+        evidence_report = self.snapshot.get_deep_analysis_report()
         
         criteria_list_str = "\n".join([
-            f"- Criterion ID: {c.id} | Title: {c.title} | Max Points: {c.weight * 10} | Description: {c.description}"
+            f"- Criterion ID: {c.id} | Title: {c.title} | Max Points: {c.weight * 10} | Category: {c.category} | Mandatory: {c.is_mandatory} | Description: {c.description}"
             for c in self.criteria
         ])
 
+        assignment_info = f"\n=== ACTIVE CLASS & ASSIGNMENT ===\nClass: {self.class_name}\nAssignment: {self.assignment_name}\n" if self.class_name and self.assignment_name else ""
         scoring_section = f"\n=== SCORING DISTRIBUTIONS (SCORING.md) ===\n{self.scoring_content}\n" if self.scoring_content else ""
 
         prompt = f"""You are an expert automated code grader and teaching assistant.
-Your task is to thoroughly evaluate the student codebase against the provided SPECIFICATIONS.md and SCORING.md distributions.
+Your task is to thoroughly analyze the student codebase and script execution against the provided SPECIFICATIONS.md, SCORING.md distributions, and mandatory assignment requirements.
+{assignment_info}
 {scoring_section}
 === SPECIFICATIONS.md ===
 {self.spec_content}
 
-=== CODEBASE SUMMARY ({os.path.basename(self.folder_path)}) ===
+{evidence_report}
+
+=== CODEBASE SUMMARY & SCRIPTS ({os.path.basename(self.folder_path)}) ===
 {code_summary}
 
 === EVALUATION CRITERIA TO SCORE ===
 {criteria_list_str}
 
-Please perform a rigorous, granular evaluation for EVERY criterion.
+Please perform a rigorous, granular evaluation for EVERY criterion by analyzing the scripts and AST evidence.
+
+CRITICAL INSTRUCTIONS FOR MANDATORY SCRIPT REQUIREMENTS:
+1. "Code Uses AI Agent" (or similar):
+   - Analyze the codebase to confirm if genuine AI/LLM model calls or generative AI SDKs are actively used (e.g. Google GenAI/Gemini `generate_content`, OpenAI `chat.completions`, Claude, LangChain with LLMs, Google ADK with Gemini).
+   - CRITICAL: A plain Python class named 'Agent' or 'WeatherAgent' that merely uses hardcoded lookup dictionaries or ThreadPoolExecutor WITHOUT any LLM or AI model integration DOES NOT qualify as an AI Agent!
+   - If genuine AI/LLM calls are present, cite the exact file, line, and SDK call in "evidence".
+   - If NO genuine AI/LLM calls exist (even if classes are named 'Agent'), award 0.0 earned points, set status to 'FAIL', specify deduction_reason as "-50.0 pts: No AI/LLM model services (Google Gemini, OpenAI, etc.) are integrated; classes named 'Agent' contain only hardcoded procedural logic.", and provide actionable fix_recommendation.
+
+2. "Code Uses Skills in Agent" (or similar):
+   - Analyze if custom Agent Skills were created (e.g., `SKILL.md` skill directories, `@tool` decorators, or tool functions registered in `tools=[...]`).
+   - If Skills are present, cite the exact skill definition file and tool functions in "evidence".
+   - If NO Skills or tool registrations exist, award 0.0 earned points, set status to 'FAIL', and explain that no agent skills were created.
+
+3. "Code Uses RAG in Agent" (or similar):
+   - Analyze if Retrieval-Augmented Generation was built (vector DBs like ChromaDB/FAISS, embeddings, similarity search, document retriever, context injection into prompt).
+   - If RAG is present, cite the exact vector store and retrieval lines in "evidence".
+   - If NO RAG pipeline exists, award 0.0 earned points, set status to 'FAIL', and explain that no RAG components were found.
+
 IMPORTANT INSTRUCTIONS FOR SCORING REASONS & DEDUCTIONS:
-- If a criterion earns a PERFECT score: Explain clearly which functions, structures, files, or patterns fulfilled the requirement.
+- If a criterion earns a PERFECT score: Cite the exact file names, line numbers, and script implementations that fulfilled the requirement in "evidence" and "feedback".
 - If a criterion earns a PARTIAL or ZERO score:
-  1. Provide a comprehensive explanation in "feedback" detailing what requirements were met versus what was missing or flawed.
-  2. In "deduction_reason", specify the exact reason points were deducted (e.g. "-10.0 pts: Missing 'usages.csv' appending logic in Flask route handler").
+  1. Provide a comprehensive explanation in "feedback" detailing what requirements were met versus what was missing.
+  2. In "deduction_reason", specify the exact reason points were deducted.
   3. In "fix_recommendation", provide concrete, actionable implementation guidance (such as code patterns or missing files) so the student knows exactly how to fix the issue.
+  4. In "evidence", cite specific code lines, functions, or explicitly state what script evidence is absent.
 
 For each criterion, return:
 1. "id": the exact criterion ID.
@@ -98,7 +126,7 @@ For each criterion, return:
 4. "feedback": Comprehensive detailed explanation of the evaluation rationale and findings.
 5. "deduction_reason": Explicit explanation of why points were lost (null if full score).
 6. "fix_recommendation": Actionable steps/guidance to achieve full marks (null if full score).
-7. "evidence": specific code lines, functions, classes, files, or missing items.
+7. "evidence": specific script line numbers, SDK calls, skill files, or explicit statement of missing evidence.
 
 Respond ONLY with a valid JSON object in the following format:
 {{
@@ -177,6 +205,8 @@ Respond ONLY with a valid JSON object in the following format:
         total_earned = 0.0
         total_possible = 0.0
 
+        deficiencies: List[str] = []
+
         for crit in self.criteria:
             max_score = crit.weight * 10.0
             total_possible += max_score
@@ -191,6 +221,17 @@ Respond ONLY with a valid JSON object in the following format:
             deduction_reason = item.get("deduction_reason")
             fix_recommendation = item.get("fix_recommendation")
 
+            # Check for mandatory deficiency
+            if crit.is_mandatory or crit.category == "Mandatory Requirement":
+                if earned < max_score * 0.5 or status == "FAIL":
+                    pct_deducted = (max_score - earned) / 10.0
+                    def_msg = f"⚠️ MANDATORY DEFICIENCY: Code is missing required '{crit.title}' (-{pct_deducted:.0f}% penalty applied)."
+                    deficiencies.append(def_msg)
+                    if not deduction_reason:
+                        deduction_reason = f"-{max_score - earned:.1f} pts: Missing required {crit.title}."
+                    if not fix_recommendation:
+                        fix_recommendation = f"Implement {crit.title} in your codebase to satisfy this mandatory assignment requirement."
+
             if earned < max_score and not deduction_reason:
                 deduction_reason = f"-{max_score - earned:.1f} pts: Implementation does not completely fulfill all conditions in specification."
 
@@ -204,6 +245,7 @@ Respond ONLY with a valid JSON object in the following format:
                 feedback=feedback,
                 evidence=evidence,
                 category=crit.category,
+                is_mandatory=crit.is_mandatory,
                 deduction_reason=deduction_reason,
                 fix_recommendation=fix_recommendation
             ))
@@ -211,16 +253,27 @@ Respond ONLY with a valid JSON object in the following format:
         percentage = round((total_earned / total_possible * 100.0) if total_possible > 0 else 0.0, 1)
         letter_grade = self._calculate_letter_grade(percentage)
 
+        raw_summary = result_json.get("overall_summary", f"Model ({active_model}) evaluated {len(self.criteria)} criteria.")
+        
+        # If deficiencies were detected, place them prominently at the top of the summary
+        if deficiencies:
+            summary = "\n".join(deficiencies) + "\n\n" + raw_summary
+        else:
+            summary = raw_summary
+
         return EvaluationResult(
             total_score=round(total_earned, 2),
             max_possible_score=round(total_possible, 2),
             percentage_score=percentage,
             letter_grade=letter_grade,
-            summary=result_json.get("overall_summary", f"Model ({active_model}) evaluated {len(self.criteria)} criteria."),
+            summary=summary,
             model_used=active_model,
+            class_name=self.class_name,
+            assignment_name=self.assignment_name,
+            deficiencies=deficiencies,
             criteria=criterion_results,
             strengths=result_json.get("strengths", [])[:8],
-            deductions=result_json.get("deductions", [])[:8],
+            deductions=(deficiencies + result_json.get("deductions", []))[:10],
             execution_logs=f"Evaluated with LLM Model ({active_model})"
         )
 
@@ -289,6 +342,131 @@ Respond ONLY with a valid JSON object in the following format:
         
         all_code_text = " ".join(self.snapshot.files.values()).lower()
         all_symbols = [s.lower() for s in self.snapshot.functions_found + self.snapshot.classes_found]
+
+        # 0. Mandatory Requirement: AI Agent Usage & Popular AI Services
+        if "ai agent" in lower_desc or "code uses ai agent" in lower_desc or "gemini" in lower_desc or "openai" in lower_desc:
+            gemini_info = self.snapshot.ai_services_audit.get("Google Gemini", {})
+            openai_info = self.snapshot.ai_services_audit.get("OpenAI / OpenAI Agents", {})
+            
+            any_service_used = self.snapshot.has_genuine_ai_agent
+            any_service_imported = gemini_info.get("imported") or openai_info.get("imported")
+            
+            if any_service_used:
+                first_ev = self.snapshot.genuine_ai_calls[0] if self.snapshot.genuine_ai_calls else {"file": "scripts", "line": 1, "description": "AI Agent Service Call"}
+                call_sites = gemini_info.get("call_sites", []) + openai_info.get("call_sites", [])
+                call_desc = f"Call site: {call_sites[0]}" if call_sites else f"{first_ev['file']}:L{first_ev['line']}"
+                ev_str = f"Found {len(self.snapshot.genuine_ai_calls)} active AI Model / Agent calls ({call_desc})."
+                return CriterionResult(
+                    id=crit.id,
+                    title=crit.title,
+                    description=crit.description,
+                    max_score=max_score,
+                    earned_score=max_score,
+                    status="PASS",
+                    feedback=f"Full Credit: Popular AI service SDKs are imported and actively called in code execution. Evidence: {ev_str}",
+                    evidence=ev_str,
+                    category=crit.category,
+                    is_mandatory=crit.is_mandatory
+                )
+            elif any_service_imported:
+                imp_sites = gemini_info.get("import_sites", []) + openai_info.get("import_sites", [])
+                imp_desc = imp_sites[0] if imp_sites else "Script imports"
+                return CriterionResult(
+                    id=crit.id,
+                    title=crit.title,
+                    description=crit.description,
+                    max_score=max_score,
+                    earned_score=round(max_score * 0.25, 1),
+                    status="PARTIAL",
+                    feedback=f"Incomplete Usage: AI service SDK is imported ({imp_desc}), but no active model generation or agent execution calls were found.",
+                    evidence=f"Imported at {imp_desc}, but 0 generation/execution calls made.",
+                    category=crit.category,
+                    is_mandatory=crit.is_mandatory,
+                    deduction_reason=f"-{max_score * 0.75:.1f} pts: AI service is imported but not actively called in code.",
+                    fix_recommendation="Invoke the AI service model (e.g. client.models.generate_content or client.chat.completions.create) in your execution pipeline."
+                )
+            else:
+                pseudo_msg = f" (Found {len(self.snapshot.pseudo_agent_classes)} classes named 'Agent', but they contain only hardcoded procedural Python without any AI/LLM models.)" if self.snapshot.pseudo_agent_classes else ""
+                return CriterionResult(
+                    id=crit.id,
+                    title=crit.title,
+                    description=crit.description,
+                    max_score=max_score,
+                    earned_score=0.0,
+                    status="FAIL",
+                    feedback=f"Missing AI Agent Implementation: Codebase contains no genuine AI/LLM services (Google Gemini, OpenAI, Claude) imported or called in scripts.{pseudo_msg}",
+                    evidence=f"AST & semantic script scan found 0 genuine AI/LLM model calls.{pseudo_msg}",
+                    category=crit.category,
+                    is_mandatory=crit.is_mandatory,
+                    deduction_reason=f"-{max_score:.1f} pts: Missing required AI Agent services in scripts.",
+                    fix_recommendation="Import and call a popular AI service (e.g. from google import genai or import openai) in your Python scripts."
+                )
+
+        # 0. Mandatory Requirement: Agent Skills Usage
+        if "skill" in lower_desc or "skills in agent" in lower_desc:
+            if self.snapshot.skills_evidence:
+                first_ev = self.snapshot.skills_evidence[0]
+                ev_str = f"Found {len(self.snapshot.skills_evidence)} skill/tool occurrences (e.g. {first_ev.get('file', 'skills')}: {first_ev['description']})."
+                return CriterionResult(
+                    id=crit.id,
+                    title=crit.title,
+                    description=crit.description,
+                    max_score=max_score,
+                    earned_score=max_score,
+                    status="PASS",
+                    feedback=f"Full Credit: Codebase defines or registers Agent Skills/Tools. Evidence: {ev_str}",
+                    evidence=ev_str,
+                    category=crit.category,
+                    is_mandatory=crit.is_mandatory
+                )
+            else:
+                return CriterionResult(
+                    id=crit.id,
+                    title=crit.title,
+                    description=crit.description,
+                    max_score=max_score,
+                    earned_score=0.0,
+                    status="FAIL",
+                    feedback="Missing Agent Skills: Codebase contains no SKILL.md skill definitions, @tool decorators, or agent tool registrations in scripts.",
+                    evidence="AST & directory scan found 0 skills/tool registrations.",
+                    category=crit.category,
+                    is_mandatory=crit.is_mandatory,
+                    deduction_reason=f"-{max_score:.1f} pts: Missing required Agent Skills / tool registrations.",
+                    fix_recommendation="Create a skills/ directory with SKILL.md or register functions as tools for your agent (tools=[...])."
+                )
+
+        # 0. Mandatory Requirement: RAG in Agent
+        if "rag" in lower_desc or "retrieval" in lower_desc:
+            if self.snapshot.rag_evidence:
+                first_ev = self.snapshot.rag_evidence[0]
+                ev_str = f"Found {len(self.snapshot.rag_evidence)} RAG components (e.g. {first_ev['file']}:L{first_ev['line']} - {first_ev['description']})."
+                return CriterionResult(
+                    id=crit.id,
+                    title=crit.title,
+                    description=crit.description,
+                    max_score=max_score,
+                    earned_score=max_score,
+                    status="PASS",
+                    feedback=f"Full Credit: Codebase implements Retrieval-Augmented Generation (RAG). Evidence: {ev_str}",
+                    evidence=ev_str,
+                    category=crit.category,
+                    is_mandatory=crit.is_mandatory
+                )
+            else:
+                return CriterionResult(
+                    id=crit.id,
+                    title=crit.title,
+                    description=crit.description,
+                    max_score=max_score,
+                    earned_score=0.0,
+                    status="FAIL",
+                    feedback="Missing RAG Pipeline: Codebase contains no vector database, embeddings, or retrieval pipeline in scripts.",
+                    evidence="AST & semantic scan found 0 RAG components.",
+                    category=crit.category,
+                    is_mandatory=crit.is_mandatory,
+                    deduction_reason=f"-{max_score:.1f} pts: Missing required RAG vector database or retrieval pipeline.",
+                    fix_recommendation="Implement document chunking, embeddings, and a vector store retriever (e.g. ChromaDB/FAISS) for your agent."
+                )
 
         # 1. Structural Integrity check (10%)
         if "structural integrity" in lower_desc:

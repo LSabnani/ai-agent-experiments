@@ -18,7 +18,9 @@ class Grader:
 
     def grade_submission(self, student_name: str, folder_name: str, 
                          subfolder: Optional[str] = None,
-                         model_name: Optional[str] = None) -> Tuple[SubmissionRecord, EvaluationResult]:
+                         model_name: Optional[str] = None,
+                         class_name: Optional[str] = None,
+                         assignment_name: Optional[str] = None) -> Tuple[SubmissionRecord, EvaluationResult]:
         if not student_name or not student_name.strip():
             raise ValueError("Student name is required.")
         
@@ -41,9 +43,14 @@ class Grader:
         # 2. Initialize Telemetry Trace
         trace_id = tracer.start_trace(student_name, folder_input)
 
-        # 3. Skill: SpecParser (loads SPECIFICATIONS.md & SCORING.md)
+        # 3. Skill: SpecParser (loads SPECIFICATIONS.md & SCORING.md & SUBMISSIONS.yaml criteria)
         spec_start = time.time()
-        parser = SpecParser(target_folder, scoring_file_path=self.scoring_file)
+        parser = SpecParser(
+            target_folder, 
+            scoring_file_path=self.scoring_file,
+            class_name=class_name,
+            assignment_name=assignment_name
+        )
         spec_content = parser.read_spec_content()
         scoring_content = parser.read_scoring_content()
         criteria = parser.parse_criteria()
@@ -52,7 +59,7 @@ class Grader:
         tracer.log_skill_usage(
             trace_id=trace_id,
             skill_name="SpecParser",
-            inputs={"folder_path": target_folder, "source_input": folder_input, "spec_file": parser.spec_file_path, "scoring_file": parser.scoring_file_path},
+            inputs={"folder_path": target_folder, "source_input": folder_input, "spec_file": parser.spec_file_path, "scoring_file": parser.scoring_file_path, "class_name": class_name, "assignment_name": assignment_name},
             outputs={"criteria_count": len(criteria), "spec_length_chars": len(spec_content), "has_scoring_rubric": scoring_content is not None},
             duration_ms=spec_dur,
             status="SUCCESS"
@@ -65,7 +72,9 @@ class Grader:
             criteria=criteria,
             model_name=model_name,
             trace_id=trace_id,
-            scoring_content=scoring_content
+            scoring_content=scoring_content,
+            class_name=class_name,
+            assignment_name=assignment_name
         )
         evaluation_result = evaluator.evaluate()
 
@@ -76,6 +85,8 @@ class Grader:
             score=evaluation_result.percentage_score,
             letter_grade=evaluation_result.letter_grade,
             model_used=evaluation_result.model_used,
+            class_name=class_name,
+            assignment_name=assignment_name,
             evaluation_details=evaluation_result
         )
 

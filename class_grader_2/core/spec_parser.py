@@ -4,9 +4,20 @@ from typing import List, Dict, Any, Optional
 from core.models import Criterion
 
 
+from core.submissions_config import submissions_config
+
+
 class SpecParser:
-    def __init__(self, folder_path: str, scoring_file_path: Optional[str] = None):
+    def __init__(
+        self, 
+        folder_path: str, 
+        scoring_file_path: Optional[str] = None,
+        class_name: Optional[str] = None,
+        assignment_name: Optional[str] = None
+    ):
         self.folder_path = folder_path
+        self.class_name = class_name
+        self.assignment_name = assignment_name
         self.spec_file_path = self._find_spec_file()
         self.scoring_file_path = scoring_file_path or self._find_scoring_file()
 
@@ -105,10 +116,43 @@ class SpecParser:
         spec_content = self.read_spec_content()
         scoring_content = self.read_scoring_content()
 
+        # 1. Load mandatory criteria from SUBMISSIONS.yaml if class & assignment selected
+        mandatory_criteria: List[Criterion] = []
+        mandatory_total_pct = 0.0
+
+        if self.class_name and self.assignment_name:
+            sub_crits = submissions_config.get_criteria(self.class_name, self.assignment_name)
+            for idx, sc in enumerate(sub_crits, 1):
+                pct = sc.get("weight_percent", 10.0)
+                mandatory_total_pct += pct
+                crit_title = sc.get("criterion", f"Requirement {idx}")
+                mandatory_criteria.append(Criterion(
+                    id=f"mand_{idx}",
+                    title=f"{crit_title} ({pct:.0f}%)",
+                    description=sc.get("description", f"Mandatory Requirement: {crit_title} (-{pct:.0f}% if missing)"),
+                    weight=pct,
+                    category="Mandatory Requirement",
+                    is_mandatory=True,
+                    penalty_percent=pct
+                ))
+
+        # 2. Parse standard rubric / spec subtasks
         if scoring_content:
-            return self._parse_criteria_with_scoring_distribution(spec_content, scoring_content)
-        
-        return self._parse_raw_spec_criteria(spec_content)
+            base_criteria = self._parse_criteria_with_scoring_distribution(spec_content, scoring_content)
+        else:
+            base_criteria = self._parse_raw_spec_criteria(spec_content)
+
+        # 3. Normalize base criteria if mandatory criteria are prepended
+        if mandatory_criteria and base_criteria:
+            remaining_pct = max(10.0, 100.0 - mandatory_total_pct)
+            base_sum = sum(c.weight for c in base_criteria)
+            if base_sum > 0:
+                scale_factor = remaining_pct / base_sum
+                for c in base_criteria:
+                    c.weight = max(1.0, round(c.weight * scale_factor, 1))
+
+        # Prepend mandatory criteria at the very top of the list
+        return mandatory_criteria + base_criteria
 
     def _parse_criteria_with_scoring_distribution(self, spec_content: str, scoring_content: str) -> List[Criterion]:
         """Aligns criteria strictly with the weights and dimensions in SCORING.md using whole point distributions."""

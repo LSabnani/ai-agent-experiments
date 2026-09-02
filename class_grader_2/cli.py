@@ -13,6 +13,8 @@ def main():
     parser.add_argument("--student", "-s", type=str, help="Student Name (e.g. 'Alice Johnson')")
     parser.add_argument("--folder", "-f", type=str, help="Path to project directory or GitHub repository URL")
     parser.add_argument("--subfolder", type=str, default=None, help="Optional subfolder within repository or directory")
+    parser.add_argument("--class-name", type=str, default=None, help="Class name from SUBMISSIONS.yaml (e.g. 'Agent Engineering')")
+    parser.add_argument("--assignment", type=str, default=None, help="Assignment name from SUBMISSIONS.yaml (e.g. 'My AI Agent Assignments')")
     parser.add_argument("--scores-file", default=DEFAULT_SCORES_PATH, help=f"Path to scores JSON file (default: {DEFAULT_SCORES_PATH})")
     parser.add_argument("--export-pdf", type=str, default=None, help="Save evaluation report to specified PDF file path")
     parser.add_argument("--export-txt", type=str, default=None, help="Save evaluation report to specified Text file path")
@@ -98,7 +100,9 @@ def main():
         sub_record, eval_result = grader.grade_submission(
             student_name=args.student, 
             folder_name=args.folder,
-            subfolder=args.subfolder
+            subfolder=args.subfolder,
+            class_name=args.class_name,
+            assignment_name=args.assignment
         )
         
         # Optional file exports

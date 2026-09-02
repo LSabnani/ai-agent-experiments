@@ -12,7 +12,9 @@ class Criterion(BaseModel):
     title: str
     description: str
     weight: float = 1.0
-    category: str = "Functionality"  # Functionality, Code Quality, Constraints, Testing
+    category: str = "Functionality"  # Mandatory Requirement, Functionality, Code Quality, Constraints, Testing
+    is_mandatory: bool = False
+    penalty_percent: Optional[float] = None
 
 
 class CriterionResult(BaseModel):
@@ -25,6 +27,7 @@ class CriterionResult(BaseModel):
     feedback: str
     evidence: Optional[str] = None
     category: str = "Functionality"
+    is_mandatory: bool = False
     deduction_reason: Optional[str] = None
     fix_recommendation: Optional[str] = None
 
@@ -36,6 +39,9 @@ class EvaluationResult(BaseModel):
     letter_grade: str
     summary: str
     model_used: Optional[str] = None
+    class_name: Optional[str] = None
+    assignment_name: Optional[str] = None
+    deficiencies: List[str] = []
     criteria: List[CriterionResult] = []
     strengths: List[str] = []
     deductions: List[str] = []
@@ -49,6 +55,8 @@ class SubmissionRecord(BaseModel):
     folder_name: str
     score: float
     letter_grade: str
+    class_name: Optional[str] = None
+    assignment_name: Optional[str] = None
     model_used: Optional[str] = None
     timestamp: str = Field(default_factory=get_utc_now_iso)
     evaluation_details: Optional[EvaluationResult] = None
@@ -63,6 +71,8 @@ class StudentSummary(BaseModel):
     latest_score: float
     latest_grade: str
     latest_folder: str
+    latest_class: Optional[str] = None
+    latest_assignment: Optional[str] = None
     latest_model_used: Optional[str] = None
 
 
@@ -70,3 +80,5 @@ class GradeRequest(BaseModel):
     student_name: str
     folder_name: str
     subfolder: Optional[str] = None
+    class_name: Optional[str] = None
+    assignment_name: Optional[str] = None

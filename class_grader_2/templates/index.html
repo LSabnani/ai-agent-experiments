@@ -53,6 +53,34 @@
                     <!-- Left: Submission Form & Quick Select -->
                     <div class="card form-card">
                         <form id="grading-form" onsubmit="handleGradeSubmit(event)">
+                            <!-- Class & Assignment Dropdowns (from SUBMISSIONS.yaml) -->
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="class-select">Course / Class</label>
+                                    <div class="input-wrapper">
+                                        <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                                        <select id="class-select" class="form-select" onchange="handleClassChange()" style="width: 100%; background: rgba(15, 23, 42, 0.6); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; padding: 10px 12px 10px 40px; font-size: 0.9rem; appearance: none; cursor: pointer;">
+                                            <option value="">-- Select Class --</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="assignment-select">Assignment</label>
+                                    <div class="input-wrapper">
+                                        <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                        <select id="assignment-select" class="form-select" onchange="handleAssignmentChange()" style="width: 100%; background: rgba(15, 23, 42, 0.6); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; padding: 10px 12px 10px 40px; font-size: 0.9rem; appearance: none; cursor: pointer;">
+                                            <option value="">-- Select Assignment --</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Assignment Mandatory Criteria Banner -->
+                            <div id="assignment-criteria-info" class="assignment-info-banner hidden" style="margin-bottom: 16px; padding: 10px 14px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 6px; font-size: 0.82rem; color: #c7d2fe;">
+                                <strong style="display: block; margin-bottom: 4px; color: #818cf8;">📋 Mandatory Criteria (from SUBMISSIONS.yaml):</strong>
+                                <ul id="assignment-criteria-list" style="margin: 0; padding-left: 18px; color: #cbd5e1;"></ul>
+                            </div>
+
                             <div class="form-group">
                                 <label for="student-name">Student Full Name</label>
                                 <div class="input-wrapper">

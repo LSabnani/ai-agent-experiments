@@ -1,6 +1,98 @@
 // ML Spec Grader Frontend Logic
 
 let currentSubmission = null;
+let submissionsConfigData = { classes: [], config: {} };
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadSubmissionsConfig();
+});
+
+// Load SUBMISSIONS.yaml Config and populate Class & Assignment dropdowns
+async function loadSubmissionsConfig() {
+    try {
+        const resp = await fetch('/api/config/submissions');
+        if (!resp.ok) return;
+        submissionsConfigData = await resp.json();
+        
+        const classSelect = document.getElementById('class-select');
+        if (!classSelect) return;
+
+        classSelect.innerHTML = '<option value="">-- Select Class --</option>';
+        (submissionsConfigData.classes || []).forEach(cls => {
+            const opt = document.createElement('option');
+            opt.value = cls;
+            opt.textContent = cls;
+            classSelect.appendChild(opt);
+        });
+
+        // If there is only one class, auto-select it
+        if (submissionsConfigData.classes && submissionsConfigData.classes.length === 1) {
+            classSelect.value = submissionsConfigData.classes[0];
+            handleClassChange();
+        }
+    } catch (e) {
+        console.error('Failed to load submissions config:', e);
+    }
+}
+
+function handleClassChange() {
+    const classSelect = document.getElementById('class-select');
+    const assignmentSelect = document.getElementById('assignment-select');
+    const selectedClass = classSelect.value;
+
+    assignmentSelect.innerHTML = '<option value="">-- Select Assignment --</option>';
+
+    if (!selectedClass || !submissionsConfigData.config[selectedClass]) {
+        document.getElementById('assignment-criteria-info').classList.add('hidden');
+        return;
+    }
+
+    const assignments = Object.keys(submissionsConfigData.config[selectedClass]);
+    assignments.forEach(assign => {
+        const opt = document.createElement('option');
+        opt.value = assign;
+        opt.textContent = assign;
+        assignmentSelect.appendChild(opt);
+    });
+
+    // Auto-select first assignment if available
+    if (assignments.length > 0) {
+        assignmentSelect.value = assignments[0];
+        handleAssignmentChange();
+    } else {
+        document.getElementById('assignment-criteria-info').classList.add('hidden');
+    }
+}
+
+function handleAssignmentChange() {
+    const classSelect = document.getElementById('class-select');
+    const assignmentSelect = document.getElementById('assignment-select');
+    const banner = document.getElementById('assignment-criteria-info');
+    const list = document.getElementById('assignment-criteria-list');
+
+    const selectedClass = classSelect.value;
+    const selectedAssign = assignmentSelect.value;
+
+    if (!selectedClass || !selectedAssign || !submissionsConfigData.config[selectedClass]) {
+        banner.classList.add('hidden');
+        return;
+    }
+
+    const criteria = submissionsConfigData.config[selectedClass][selectedAssign] || [];
+    if (criteria.length === 0) {
+        banner.classList.add('hidden');
+        return;
+    }
+
+    list.innerHTML = '';
+    criteria.forEach(c => {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>${escapeHtml(c.criterion)}</strong>: <span style="color: #f87171; font-weight: 700;">-${c.weight_percent}% penalty</span> if missing`;
+        list.appendChild(li);
+    });
+    banner.classList.remove('hidden');
+}
 
 function switchTab(tab) {
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -38,6 +130,11 @@ async function handleGradeSubmit(event) {
     const subfolderEl = document.getElementById('subfolder-path');
     const subfolder = subfolderEl ? subfolderEl.value.trim() : '';
 
+    const classSelect = document.getElementById('class-select');
+    const assignmentSelect = document.getElementById('assignment-select');
+    const className = classSelect ? classSelect.value : '';
+    const assignmentName = assignmentSelect ? assignmentSelect.value : '';
+
     const statusBanner = document.getElementById('status-message');
     const submitBtn = document.getElementById('btn-submit-grade');
     const placeholder = document.getElementById('result-placeholder');
@@ -61,7 +158,9 @@ async function handleGradeSubmit(event) {
             body: JSON.stringify({
                 student_name: studentName,
                 folder_name: folderPath,
-                subfolder: subfolder || null
+                subfolder: subfolder || null,
+                class_name: className || null,
+                assignment_name: assignmentName || null
             })
         });
 
@@ -95,7 +194,9 @@ function renderEvaluationResult(submission) {
     document.getElementById('res-score').textContent = Math.round(submission.score);
     document.getElementById('res-grade').textContent = submission.letter_grade;
     document.getElementById('res-student-title').textContent = `${submission.student_name} Evaluation`;
-    document.getElementById('res-summary').textContent = details ? details.summary : 'Evaluation complete.';
+    
+    // Summary
+    document.getElementById('res-summary').innerHTML = escapeHtml(details ? details.summary : 'Evaluation complete.').replace(/\n/g, '<br>');
     document.getElementById('res-folder-tag').textContent = submission.folder_name;
 
     // Model Used Tag
@@ -131,13 +232,15 @@ function renderEvaluationResult(submission) {
         deductionsList.innerHTML = '<li>✓ Zero deductions! Perfect specification match.</li>';
     }
 
-    // Detailed Criteria Breakdown with Deduction Reasons & Fix Recommendations
+    // Detailed Criteria Breakdown with Mandatory criteria at the top
     const criteriaList = document.getElementById('res-criteria-list');
     criteriaList.innerHTML = '';
     if (details && details.criteria) {
-        details.criteria.forEach(c => {
+        details.criteria.forEach((c, idx) => {
             const isPerfect = c.earned_score >= c.max_score;
-            const badgeClass = c.status === 'PASS' ? 'badge-pass' : (c.status === 'PARTIAL' ? 'badge-partial' : 'badge-fail');
+            const isMandatory = c.is_mandatory || c.category === 'Mandatory Requirement' || (c.id && c.id.startsWith('mand_'));
+            
+            let badgeClass = c.status === 'PASS' ? 'badge-pass' : (c.status === 'PARTIAL' ? 'badge-partial' : 'badge-fail');
             
             let deductionHtml = '';
             if (!isPerfect && (c.deduction_reason || c.status !== 'PASS')) {
@@ -166,9 +269,17 @@ function renderEvaluationResult(submission) {
 
             const card = document.createElement('div');
             card.className = 'criterion-card';
+            if (isMandatory) {
+                card.style.border = isPerfect ? '1px solid rgba(16, 185, 129, 0.4)' : '2px solid rgba(239, 68, 68, 0.6)';
+                card.style.background = isPerfect ? 'rgba(16, 185, 129, 0.04)' : 'rgba(239, 68, 68, 0.06)';
+            }
+
             card.innerHTML = `
                 <div class="criterion-header">
-                    <span class="criterion-title">${escapeHtml(c.title)}</span>
+                    <div>
+                        ${isMandatory ? '<span class="criterion-badge" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; font-size: 0.72rem; margin-right: 6px; border: 1px solid rgba(239, 68, 68, 0.4);">⭐ MANDATORY REQUIREMENT</span>' : ''}
+                        <span class="criterion-title">${escapeHtml(c.title)}</span>
+                    </div>
                     <div>
                         <span class="criterion-badge ${badgeClass}">${c.status}</span>
                         <span class="criterion-points" style="font-weight: 700;">${c.earned_score}/${c.max_score} pts</span>
@@ -199,7 +310,7 @@ function downloadCurrentReport(format) {
         return;
     }
     
-    // Direct native browser download without blob timer interruption
+    // Direct native browser download
     const endpoint = `/api/submissions/${currentSubmission.id}/download/${format}`;
     const safeName = (currentSubmission.student_name || 'student').replace(/[^a-zA-Z0-9_-]/g, '_');
     const a = document.createElement('a');
@@ -359,10 +470,14 @@ async function openStudentModal(studentName) {
                     <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
                         ${details.criteria.map(c => {
                             const isPerf = c.earned_score >= c.max_score;
+                            const isMand = c.is_mandatory || c.category === 'Mandatory Requirement';
                             return `
                                 <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                                        <strong style="font-size: 0.82rem;">${escapeHtml(c.title)}</strong>
+                                        <div>
+                                            ${isMand ? '<span style="font-size: 0.68rem; color: #f87171; font-weight: 700; margin-right: 4px;">[MANDATORY]</span>' : ''}
+                                            <strong style="font-size: 0.82rem;">${escapeHtml(c.title)}</strong>
+                                        </div>
                                         <span class="criterion-badge ${c.status === 'PASS' ? 'badge-pass' : (c.status === 'PARTIAL' ? 'badge-partial' : 'badge-fail')}" style="font-size: 0.72rem;">
                                             ${c.earned_score}/${c.max_score} pts (${c.status})
                                         </span>
