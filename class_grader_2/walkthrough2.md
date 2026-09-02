@@ -29,6 +29,19 @@ We implemented configuration loading from `SUBMISSIONS.yaml` with Class and Assi
      - Genuine AI Agent requirement checks for active invocations of Google Gemini (`generate_content`), OpenAI (`chat.completions`), Anthropic Claude, or LLM-backed agent frameworks (Google ADK, LangChain).
    - Generates a structured **`EVIDENCE & AST CODE ANALYSIS REPORT`** with exact line numbers and code snippets to ground the evaluation.
 
+5. **Interactive 2-Box Gemini Traces Viewer ([templates/index.html](file:///home/pi-net/Documents/agent_eng_labs/class_grading/class_grader_2/templates/index.html) & [static/app.js](file:///home/pi-net/Documents/agent_eng_labs/class_grading/class_grader_2/static/app.js))**:
+   - **Box 1 (Top Scrollable Box)**: Lists all student submissions with Student Name, Repository / Folder, Model Used, Score & Letter Grade, Timestamp, and Event Count. Clicking any submission highlights it and updates Box 2.
+   - **Box 2 (Bottom Events & Logs Box)**: Displays the full execution timeline and logs for the selected submission (`TRACE_START`, `SKILL_USAGE`, `MODEL_CALL`, `MODEL_RESPONSE`, `TOOL_INVOCATION`, `TRACE_END`) with live filtering pills and collapsible prompt/response payload viewers.
+
+6. **Instructor View Multi-Assignment Support & Filtering ([core/storage.py](file:///home/pi-net/Documents/agent_eng_labs/class_grading/class_grader_2/core/storage.py), [templates/index.html](file:///home/pi-net/Documents/agent_eng_labs/class_grading/class_grader_2/templates/index.html), & [static/app.js](file:///home/pi-net/Documents/agent_eng_labs/class_grading/class_grader_2/static/app.js))**:
+   - **Multi-Assignment Submission Rows**: Instructor summary records in `core/storage.py` are grouped by `(student_name, class_name, assignment_name)`. When a student submits repositories for multiple different assignments (e.g. `AI Agent Assignments` and `Skill Assignments`), a dedicated summary row is displayed for each assignment.
+   - **New Table Columns**: `Course / Class` and `Assignment` columns with structured badge tags. If fields are missing in legacy logs, they are left blank (`--`).
+   - **Single-Select Filter Group 1 (Student Name)**: Filters the leaderboard by a specific student across all their assignment submissions.
+   - **Single-Select Filter Group 2 (Course / Class & Assignment)**:
+     - Dropdown 1 selects the Course/Class.
+     - Dropdown 2 dynamically populates with assignments for the selected course.
+   - **Interactive Column Sorting**: All 8 table headers are clickable to toggle ascending (`▲`) and descending (`▼`) order with live UI indicators.
+
 ---
 
 ## Verification Results
@@ -39,10 +52,10 @@ python3 -m unittest discover -s tests -p "test_*.py"
 ```
 **Result**:
 ```
-.........
+...........
 ----------------------------------------------------------------------
-Ran 9 tests in 17.688s
+Ran 11 tests in 29.044s
 
 OK
 ```
-All 9 tests passed, including `test_pseudo_agent_classes_rejection` and `test_popular_ai_services_audit`.
+All 11 tests passed, including `test_instructor_multi_assignment_summaries`.

@@ -37,13 +37,18 @@ class TelemetryTracer:
         except Exception as e:
             print(f"Warning: Failed to write telemetry event to {self.log_file}: {e}")
 
-    def start_trace(self, student_name: str, folder_name: str, trace_id: Optional[str] = None) -> str:
+    def start_trace(self, student_name: str, folder_name: str, 
+                    class_name: Optional[str] = None,
+                    assignment_name: Optional[str] = None,
+                    trace_id: Optional[str] = None) -> str:
         tid = trace_id or str(uuid.uuid4())
         start_time = get_utc_iso()
         self._active_traces[tid] = {
             "trace_id": tid,
             "student_name": student_name,
             "folder_name": folder_name,
+            "class_name": class_name,
+            "assignment_name": assignment_name,
             "start_time": start_time,
             "status": "RUNNING",
             "events": []
@@ -56,6 +61,8 @@ class TelemetryTracer:
             "details": {
                 "student_name": student_name,
                 "folder_name": folder_name,
+                "class_name": class_name,
+                "assignment_name": assignment_name,
                 "system": "ML Specification Grader",
                 "framework": "Google Gemini Tracing"
             }
@@ -210,6 +217,99 @@ class TelemetryTracer:
             except Exception as e:
                 print(f"Warning: Failed to write trace to {trace_path}: {e}")
 
+    def get_grouped_trace_sessions(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Returns list of submissions / trace sessions grouped with their events, sorted newest first."""
+        if not os.path.exists(self.log_file):
+            return []
+
+        all_events = []
+        try:
+            with open(self.log_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            all_events.append(json.loads(line))
+                        except Exception:
+                            pass
+        except Exception as e:
+            print(f"Error reading {self.log_file}: {e}")
+            return []
+
+        # Group by trace_id maintaining order
+        sessions_map: Dict[str, Dict[str, Any]] = {}
+        for event in all_events:
+            tid = event.get("trace_id")
+            if not tid:
+                continue
+
+            if tid not in sessions_map:
+                sessions_map[tid] = {
+                    "trace_id": tid,
+                    "student_name": "Unknown Student",
+                    "folder_name": "--",
+                    "start_time": event.get("timestamp"),
+                    "end_time": None,
+                    "model_name": "Google Gemini",
+                    "overall_score": None,
+                    "letter_grade": None,
+                    "summary": "",
+                    "status": "RUNNING",
+                    "event_count": 0,
+                    "events": []
+                }
+
+            session = sessions_map[tid]
+            session["events"].append(event)
+            session["event_count"] += 1
+
+            # Extract metadata from event types
+            etype = event.get("event_type")
+            details = event.get("details", {})
+
+            if etype == "TRACE_START":
+                session["student_name"] = details.get("student_name", session["student_name"])
+                session["folder_name"] = details.get("folder_name", session["folder_name"])
+                session["class_name"] = details.get("class_name")
+                session["assignment_name"] = details.get("assignment_name")
+                session["start_time"] = event.get("timestamp", session["start_time"])
+
+            elif etype == "MODEL_CALL":
+                session["model_name"] = details.get("model", session["model_name"])
+
+            elif etype == "MODEL_RESPONSE":
+                if "model" in details:
+                    session["model_name"] = details.get("model", session["model_name"])
+
+            elif etype == "TRACE_END":
+                session["status"] = "COMPLETED"
+                session["end_time"] = event.get("timestamp")
+                session["overall_score"] = details.get("overall_score")
+                session["letter_grade"] = details.get("letter_grade")
+                session["summary"] = details.get("summary", "")
+
+        # Convert to list and sort by start_time descending (newest first)
+        sessions_list = list(sessions_map.values())
+        sessions_list.sort(key=lambda s: s.get("start_time") or "", reverse=True)
+        return sessions_list[:limit]
+
+    def get_trace_by_id(self, trace_id: str) -> Optional[Dict[str, Any]]:
+        """Returns details and events for a specific trace_id."""
+        sessions = self.get_grouped_trace_sessions(limit=500)
+        for s in sessions:
+            if s.get("trace_id") == trace_id:
+                return s
+
+        # Check isolated traces json file if present
+        trace_file = os.path.join(self.traces_dir, f"{trace_id}.json")
+        if os.path.exists(trace_file):
+            try:
+                with open(trace_file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return None
+
     def get_trace_history(self, limit: int = 50) -> List[Dict[str, Any]]:
         """Returns recent traces from gemini_traces.jsonl."""
         if not os.path.exists(self.log_file):
@@ -229,3 +329,4 @@ class TelemetryTracer:
 
 # Global Telemetry instance
 tracer = TelemetryTracer(output_dir="outputs")
+

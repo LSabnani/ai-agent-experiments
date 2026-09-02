@@ -88,17 +88,20 @@ class ScoreStorage:
 
     def get_instructor_student_summaries(self) -> List[StudentSummary]:
         all_subs = self.get_all_submissions()
-        students_map: Dict[str, List[SubmissionRecord]] = {}
+        groups_map: Dict[tuple, List[SubmissionRecord]] = {}
         
-        # Group submissions by student (case-preserved display name from most recent submission)
+        # Group submissions by (student_name, class_name, assignment_name)
         for sub in all_subs:
-            normalized_key = sub.student_name.strip().lower()
-            if normalized_key not in students_map:
-                students_map[normalized_key] = []
-            students_map[normalized_key].append(sub)
+            s_name = sub.student_name.strip().lower()
+            c_name = (sub.class_name or (sub.evaluation_details.class_name if sub.evaluation_details else "") or "").strip().lower()
+            a_name = (sub.assignment_name or (sub.evaluation_details.assignment_name if sub.evaluation_details else "") or "").strip().lower()
+            key = (s_name, c_name, a_name)
+            if key not in groups_map:
+                groups_map[key] = []
+            groups_map[key].append(sub)
 
         summaries: List[StudentSummary] = []
-        for key, subs in students_map.items():
+        for key, subs in groups_map.items():
             if not subs:
                 continue
             
@@ -109,9 +112,11 @@ class ScoreStorage:
             # Find submission with highest score
             highest_sub = max(subs, key=lambda s: s.score)
             
-            # Calculate display name
+            # Calculate display name and metadata
             display_name = latest_sub.student_name.strip()
-            
+            class_val = latest_sub.class_name or (latest_sub.evaluation_details.class_name if latest_sub.evaluation_details else None)
+            assign_val = latest_sub.assignment_name or (latest_sub.evaluation_details.assignment_name if latest_sub.evaluation_details else None)
+
             summary = StudentSummary(
                 student_name=display_name,
                 total_submissions=len(subs),
@@ -121,12 +126,12 @@ class ScoreStorage:
                 latest_score=latest_sub.score,
                 latest_grade=latest_sub.letter_grade,
                 latest_folder=latest_sub.folder_name,
-                latest_class=latest_sub.class_name,
-                latest_assignment=latest_sub.assignment_name,
+                latest_class=class_val,
+                latest_assignment=assign_val,
                 latest_model_used=latest_sub.model_used or (latest_sub.evaluation_details.model_used if latest_sub.evaluation_details else None)
             )
             summaries.append(summary)
 
-        # Sort summary by highest score descending by default
-        summaries.sort(key=lambda s: s.highest_score, reverse=True)
+        # Sort summary by latest_submission_time descending or highest_score descending
+        summaries.sort(key=lambda s: s.latest_submission_time or "", reverse=True)
         return summaries

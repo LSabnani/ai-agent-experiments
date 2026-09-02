@@ -41,7 +41,12 @@ class Grader:
             raise NotADirectoryError(f"Provided path '{target_folder}' is not a directory.")
 
         # 2. Initialize Telemetry Trace
-        trace_id = tracer.start_trace(student_name, folder_input)
+        trace_id = tracer.start_trace(
+            student_name=student_name, 
+            folder_name=folder_input,
+            class_name=class_name,
+            assignment_name=assignment_name
+        )
 
         # 3. Skill: SpecParser (loads SPECIFICATIONS.md & SCORING.md & SUBMISSIONS.yaml criteria)
         spec_start = time.time()

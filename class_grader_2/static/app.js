@@ -323,119 +323,648 @@ function downloadCurrentReport(format) {
     }, 500);
 }
 
+// State for Instructor View Filtering & Sorting
+let instructorStudentsData = [];
+let instructorSelectedStudent = '';
+let instructorSelectedClass = '';
+let instructorSelectedAssignment = '';
+let currentInstructorSort = { column: 'highest_score', order: 'desc' };
+
 // Load Instructor Leaderboard & Student Summaries
 async function loadInstructorData() {
     const tbody = document.getElementById('instructor-table-body');
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center">Loading student records...</td></tr>';
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center">Loading student records...</td></tr>';
+    }
 
     try {
         const response = await fetch('/api/instructor/students');
-        const students = await response.json();
+        instructorStudentsData = await response.json();
 
-        // Update Statistics
-        document.getElementById('stat-total-students').textContent = students.length;
-        const totalSubs = students.reduce((acc, s) => acc + s.total_submissions, 0);
-        document.getElementById('stat-total-subs').textContent = totalSubs;
-        
-        const topScore = students.length > 0 ? Math.max(...students.map(s => s.highest_score)) : 0;
-        document.getElementById('stat-top-score').textContent = `${topScore.toFixed(1)}%`;
+        // Populate Dropdowns (Single Selects)
+        populateStudentDropdown(instructorStudentsData);
+        populateInstructorClassAndAssignmentFilters(instructorStudentsData);
 
-        if (students.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding: 30px;">No submissions recorded yet in outputs/scores.json.</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = '';
-        students.forEach(s => {
-            const row = document.createElement('tr');
-            const formattedTime = new Date(s.latest_submission_time).toLocaleString();
-            const modelName = s.latest_model_used || 'Gemini AI';
-            
-            row.innerHTML = `
-                <td>
-                    <a href="javascript:void(0)" class="student-link" onclick="openStudentModal('${escapeHtml(s.student_name)}')">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                        <strong>${escapeHtml(s.student_name)}</strong>
-                    </a>
-                </td>
-                <td>
-                    <span class="criterion-badge badge-pass" style="font-size: 0.85rem;">
-                        ${s.highest_score.toFixed(1)}% (${s.highest_grade})
-                    </span>
-                </td>
-                <td>
-                    <span class="criterion-badge ${s.latest_score >= 80 ? 'badge-pass' : (s.latest_score >= 60 ? 'badge-partial' : 'badge-fail')}">
-                        ${s.latest_score.toFixed(1)}% (${s.latest_grade})
-                    </span>
-                </td>
-                <td>
-                    <span style="font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; background: rgba(99, 102, 241, 0.1); color: #818cf8; padding: 2px 6px; border-radius: 4px;">
-                        ${escapeHtml(modelName)}
-                    </span>
-                </td>
-                <td><small style="color: var(--text-muted);">${formattedTime}</small></td>
-                <td><span style="font-weight: 700;">${s.total_submissions}</span></td>
-                <td>
-                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="openStudentModal('${escapeHtml(s.student_name)}')">
-                        View & Download
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
+        // Render Table with active filters & sorting
+        renderInstructorTable();
 
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="color: var(--danger);">Failed to load instructor data: ${err.message}</td></tr>`;
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center" style="color: var(--danger);">Failed to load instructor data: ${escapeHtml(err.message)}</td></tr>`;
+        }
     }
 }
 
-// Load Gemini Telemetry Traces
+// Populate Student Names Dropdown (Single Select)
+function populateStudentDropdown(students) {
+    const studentSelect = document.getElementById('instructor-student-filter');
+    if (!studentSelect) return;
+
+    const uniqueStudents = Array.from(new Set(students.map(s => s.student_name.trim()))).sort();
+    const currentVal = studentSelect.value || instructorSelectedStudent;
+
+    studentSelect.innerHTML = '<option value="">All Students</option>';
+    uniqueStudents.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        if (name === currentVal) opt.selected = true;
+        studentSelect.appendChild(opt);
+    });
+
+    instructorSelectedStudent = studentSelect.value;
+}
+
+// Handle Student Filter Change
+function handleInstructorStudentFilterChange() {
+    const studentSelect = document.getElementById('instructor-student-filter');
+    instructorSelectedStudent = studentSelect ? studentSelect.value : '';
+    renderInstructorTable();
+}
+
+// Populate Course & Assignment Filter Options
+function populateInstructorClassAndAssignmentFilters(students) {
+    const classSelect = document.getElementById('instructor-class-filter');
+    if (!classSelect) return;
+
+    // Collect all unique classes from config and student records
+    const classSet = new Set();
+    if (submissionsConfigData && submissionsConfigData.classes) {
+        submissionsConfigData.classes.forEach(c => classSet.add(c));
+    }
+    students.forEach(s => {
+        if (s.latest_class && s.latest_class !== '--') classSet.add(s.latest_class);
+    });
+
+    const currentClass = classSelect.value || instructorSelectedClass;
+    classSelect.innerHTML = '<option value="">All Courses / Classes</option>';
+    
+    Array.from(classSet).sort().forEach(cls => {
+        const opt = document.createElement('option');
+        opt.value = cls;
+        opt.textContent = cls;
+        if (cls === currentClass) opt.selected = true;
+        classSelect.appendChild(opt);
+    });
+
+    instructorSelectedClass = classSelect.value;
+    updateAssignmentDropdownOptions();
+}
+
+// Handle Course / Class Filter Change
+function handleInstructorClassFilterChange() {
+    const classSelect = document.getElementById('instructor-class-filter');
+    instructorSelectedClass = classSelect ? classSelect.value : '';
+    
+    // Update assignment options based on newly selected class
+    updateAssignmentDropdownOptions();
+    renderInstructorTable();
+}
+
+// Handle Assignment Filter Change
+function handleInstructorAssignmentFilterChange() {
+    const assignSelect = document.getElementById('instructor-assignment-filter');
+    instructorSelectedAssignment = assignSelect ? assignSelect.value : '';
+    renderInstructorTable();
+}
+
+// Update Assignment Dropdown Options depending on selected Class (Single Select)
+function updateAssignmentDropdownOptions() {
+    const assignSelect = document.getElementById('instructor-assignment-filter');
+    if (!assignSelect) return;
+
+    const assignmentSet = new Set();
+
+    if (instructorSelectedClass && submissionsConfigData && submissionsConfigData.config && submissionsConfigData.config[instructorSelectedClass]) {
+        Object.keys(submissionsConfigData.config[instructorSelectedClass]).forEach(a => assignmentSet.add(a));
+    } else {
+        // Collect from all config and student records
+        if (submissionsConfigData && submissionsConfigData.config) {
+            Object.values(submissionsConfigData.config).forEach(assignObj => {
+                Object.keys(assignObj).forEach(a => assignmentSet.add(a));
+            });
+        }
+        instructorStudentsData.forEach(s => {
+            if (s.latest_assignment && s.latest_assignment !== '--') {
+                if (!instructorSelectedClass || s.latest_class === instructorSelectedClass) {
+                    assignmentSet.add(s.latest_assignment);
+                }
+            }
+        });
+    }
+
+    const uniqueAssignments = Array.from(assignmentSet).sort();
+    const currentVal = assignSelect.value || instructorSelectedAssignment;
+
+    assignSelect.innerHTML = '<option value="">All Assignments</option>';
+    uniqueAssignments.forEach(assign => {
+        const opt = document.createElement('option');
+        opt.value = assign;
+        opt.textContent = assign;
+        if (assign === currentVal) opt.selected = true;
+        assignSelect.appendChild(opt);
+    });
+
+    instructorSelectedAssignment = assignSelect.value;
+}
+
+// Reset All Instructor Filters
+function resetInstructorFilters() {
+    const studentSelect = document.getElementById('instructor-student-filter');
+    const classSelect = document.getElementById('instructor-class-filter');
+    const assignSelect = document.getElementById('instructor-assignment-filter');
+
+    if (studentSelect) studentSelect.value = '';
+    if (classSelect) classSelect.value = '';
+    if (assignSelect) assignSelect.value = '';
+
+    instructorSelectedStudent = '';
+    instructorSelectedClass = '';
+    instructorSelectedAssignment = '';
+
+    updateAssignmentDropdownOptions();
+    renderInstructorTable();
+}
+
+// Handle Interactive Column Sorting Toggle
+function handleInstructorSort(columnName) {
+    if (currentInstructorSort.column === columnName) {
+        // Toggle order
+        currentInstructorSort.order = currentInstructorSort.order === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentInstructorSort.column = columnName;
+        // Default sort direction: descending for scores, time, total; ascending for text
+        if (['highest_score', 'latest_score', 'latest_submission_time', 'total_submissions'].includes(columnName)) {
+            currentInstructorSort.order = 'desc';
+        } else {
+            currentInstructorSort.order = 'asc';
+        }
+    }
+
+    renderInstructorTable();
+}
+
+// Render Filtered & Sorted Instructor Table
+function renderInstructorTable() {
+    const tbody = document.getElementById('instructor-table-body');
+    const summaryEl = document.getElementById('instructor-active-filter-summary');
+    if (!tbody) return;
+
+    // 1. Filter dataset
+    let filtered = instructorStudentsData.filter(s => {
+        // Filter by Single Student Name
+        if (instructorSelectedStudent && s.student_name.trim().toLowerCase() !== instructorSelectedStudent.trim().toLowerCase()) {
+            return false;
+        }
+
+        // Filter by Course / Class
+        const studentClass = (s.latest_class || '').trim();
+        if (instructorSelectedClass) {
+            if (!studentClass || studentClass.toLowerCase() !== instructorSelectedClass.trim().toLowerCase()) {
+                return false;
+            }
+        }
+
+        // Filter by Single Assignment
+        const studentAssign = (s.latest_assignment || '').trim();
+        if (instructorSelectedAssignment) {
+            if (!studentAssign || studentAssign.toLowerCase() !== instructorSelectedAssignment.trim().toLowerCase()) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    // 2. Sort dataset
+    const col = currentInstructorSort.column;
+    const isAsc = currentInstructorSort.order === 'asc';
+
+    filtered.sort((a, b) => {
+        let valA = a[col];
+        let valB = b[col];
+
+        // Fallbacks for null/undefined
+        if (valA === null || valA === undefined) valA = (typeof valB === 'number') ? -Infinity : '';
+        if (valB === null || valB === undefined) valB = (typeof valA === 'number') ? -Infinity : '';
+
+        if (typeof valA === 'number' && typeof valB === 'number') {
+            return isAsc ? valA - valB : valB - valA;
+        }
+
+        if (col === 'latest_submission_time') {
+            const timeA = new Date(valA).getTime() || 0;
+            const timeB = new Date(valB).getTime() || 0;
+            return isAsc ? timeA - timeB : timeB - timeA;
+        }
+
+        // String comparison
+        const strA = String(valA).toLowerCase();
+        const strB = String(valB).toLowerCase();
+        return isAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+
+    // 3. Update Sort Indicator Icons
+    ['student_name', 'latest_class', 'latest_assignment', 'highest_score', 'latest_score', 'latest_model_used', 'latest_submission_time', 'total_submissions'].forEach(c => {
+        const iconEl = document.getElementById(`sort-icon-${c}`);
+        if (iconEl) {
+            if (currentInstructorSort.column === c) {
+                iconEl.textContent = currentInstructorSort.order === 'asc' ? '▲' : '▼';
+                iconEl.className = 'sort-icon active';
+            } else {
+                iconEl.textContent = '↕';
+                iconEl.className = 'sort-icon';
+            }
+        }
+    });
+
+    // 4. Update Statistics Cards based on filtered data
+    const totalStudentsEl = document.getElementById('stat-total-students');
+    const totalSubsEl = document.getElementById('stat-total-subs');
+    const topScoreEl = document.getElementById('stat-top-score');
+
+    if (totalStudentsEl) totalStudentsEl.textContent = filtered.length;
+    if (totalSubsEl) totalSubsEl.textContent = filtered.reduce((acc, s) => acc + s.total_submissions, 0);
+    if (topScoreEl) {
+        const topScore = filtered.length > 0 ? Math.max(...filtered.map(s => s.highest_score)) : 0;
+        topScoreEl.textContent = `${topScore.toFixed(1)}%`;
+    }
+
+    if (summaryEl) {
+        summaryEl.textContent = `Showing ${filtered.length} of ${instructorStudentsData.length} students`;
+    }
+
+    // 5. Render Table Rows
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center" style="padding: 30px; color: var(--text-muted);">No submissions match the selected student and course/assignment filters.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = '';
+    filtered.forEach(s => {
+        const row = document.createElement('tr');
+        const formattedTime = s.latest_submission_time ? new Date(s.latest_submission_time).toLocaleString() : '--';
+        const modelName = s.latest_model_used || 'Gemini AI';
+        const className = s.latest_class ? s.latest_class.trim() : '';
+        const assignName = s.latest_assignment ? s.latest_assignment.trim() : '';
+        
+        const classHtml = className 
+            ? `<span style="font-size: 0.78rem; font-weight: 600; color: #cbd5e1; background: rgba(255,255,255,0.05); padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08);">🎓 ${escapeHtml(className)}</span>`
+            : `<span style="color: var(--text-muted); font-size: 0.78rem;">--</span>`;
+
+        const assignHtml = assignName 
+            ? `<span style="font-size: 0.78rem; font-weight: 600; color: #a78bfa; background: rgba(167,139,250,0.1); padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(167,139,250,0.25);">📝 ${escapeHtml(assignName)}</span>`
+            : `<span style="color: var(--text-muted); font-size: 0.78rem;">--</span>`;
+
+        row.innerHTML = `
+            <td>
+                <a href="javascript:void(0)" class="student-link" onclick="openStudentModal('${escapeHtml(s.student_name)}')">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <strong>${escapeHtml(s.student_name)}</strong>
+                </a>
+            </td>
+            <td>${classHtml}</td>
+            <td>${assignHtml}</td>
+            <td>
+                <span class="criterion-badge ${s.highest_score >= 80 ? 'badge-pass' : (s.highest_score >= 60 ? 'badge-partial' : 'badge-fail')}" style="font-size: 0.85rem;">
+                    ${s.highest_score.toFixed(1)}% (${s.highest_grade})
+                </span>
+            </td>
+            <td>
+                <span class="criterion-badge ${s.latest_score >= 80 ? 'badge-pass' : (s.latest_score >= 60 ? 'badge-partial' : 'badge-fail')}">
+                    ${s.latest_score.toFixed(1)}% (${s.latest_grade})
+                </span>
+            </td>
+            <td>
+                <span style="font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; background: rgba(99, 102, 241, 0.1); color: #818cf8; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(99,102,241,0.2);">
+                    🤖 ${escapeHtml(modelName)}
+                </span>
+            </td>
+            <td><small style="color: var(--text-muted);">${formattedTime}</small></td>
+            <td><span style="font-weight: 700; color: #f8fafc;">${s.total_submissions}</span></td>
+            <td>
+                <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="openStudentModal('${escapeHtml(s.student_name)}')">
+                    View Submissions
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+
+
+// State for Gemini Traces Viewer 2-Box Layout
+let cachedTraceSessions = [];
+let currentSelectedSession = null;
+let currentTraceEvents = [];
+let currentTraceFilter = 'ALL';
+
+// Load Gemini Telemetry Traces (Submissions in Top Box & Events in Bottom Box)
 async function loadTracesData() {
-    const listEl = document.getElementById('traces-list');
-    listEl.innerHTML = '<div class="text-center" style="padding: 20px;">Fetching telemetry traces from outputs/gemini_traces.jsonl...</div>';
+    const tableBody = document.getElementById('traces-submissions-table-body');
+    const countBadge = document.getElementById('traces-submission-count');
+    const eventsContainer = document.getElementById('traces-events-container');
+
+    if (tableBody) {
+        tableBody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 24px;">Fetching submission traces from outputs/gemini_traces.jsonl...</td></tr>';
+    }
 
     try {
-        const response = await fetch('/api/traces?limit=40');
+        const response = await fetch('/api/traces/submissions?limit=100');
         const data = await response.json();
-        const traces = data.traces || [];
+        cachedTraceSessions = data.sessions || [];
 
-        if (traces.length === 0) {
-            listEl.innerHTML = '<div class="text-center" style="padding: 30px; color: var(--text-muted);">No telemetry traces recorded yet. Run a grading evaluation to generate traces.</div>';
+        if (countBadge) {
+            countBadge.textContent = `${cachedTraceSessions.length} submission${cachedTraceSessions.length === 1 ? '' : 's'}`;
+        }
+
+        if (cachedTraceSessions.length === 0) {
+            if (tableBody) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 30px; color: var(--text-muted);">No telemetry traces recorded yet. Run a grading evaluation to generate traces.</td></tr>';
+            }
+            if (eventsContainer) {
+                eventsContainer.innerHTML = '<div class="text-center" style="padding: 40px; color: var(--text-muted);">No traces found. Submit a repository for grading first.</div>';
+            }
             return;
         }
 
-        listEl.innerHTML = '';
-        traces.reverse().forEach(t => {
-            const timeStr = new Date(t.timestamp).toLocaleTimeString();
-            const evType = t.event_type || 'EVENT';
-            const dur = t.duration_ms ? `${t.duration_ms.toFixed(1)}ms` : '';
-            
-            let badgeClass = 'badge-pass';
-            if (evType === 'MODEL_CALL') badgeClass = 'badge-partial';
-            if (evType === 'MODEL_RESPONSE') badgeClass = 'badge-pass';
-            if (evType === 'TOOL_INVOCATION') badgeClass = 'badge-partial';
-            if (evType === 'TOOL_RESPONSE') badgeClass = 'badge-pass';
-            if (evType === 'SKILL_USAGE') badgeClass = 'badge-pass';
+        // Render Top Box (Submissions Table)
+        renderTraceSubmissionsTable();
 
-            const item = document.createElement('div');
-            item.className = 'history-item';
-            item.innerHTML = `
-                <div class="history-header">
-                    <div>
-                        <span class="criterion-badge ${badgeClass}" style="font-size: 0.8rem; font-weight: 700;">${evType}</span>
-                        ${dur ? `<span style="margin-left: 8px; font-size: 0.8rem; color: var(--primary); font-weight: 600;">⚡ ${dur}</span>` : ''}
-                    </div>
-                    <span style="font-size: 0.78rem; color: var(--text-muted);">${timeStr}</span>
-                </div>
-                <pre style="background: rgba(0,0,0,0.35); padding: 10px; border-radius: 6px; font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; overflow-x: auto; color: #cbd5e1; margin-top: 8px;">${escapeHtml(JSON.stringify(t.details, null, 2))}</pre>
-            `;
-            listEl.appendChild(item);
-        });
+        // Automatically select the first (latest) submission
+        if (cachedTraceSessions.length > 0) {
+            selectTraceSubmission(cachedTraceSessions[0].trace_id);
+        }
 
     } catch (err) {
-        listEl.innerHTML = `<div class="text-center" style="color: var(--danger); padding: 20px;">Error loading traces: ${err.message}</div>`;
+        if (tableBody) {
+            tableBody.innerHTML = `<tr><td colspan="6" class="text-center" style="color: var(--danger); padding: 20px;">Error loading traces: ${escapeHtml(err.message)}</td></tr>`;
+        }
     }
 }
+
+// Render Top Box: Submissions Table
+function renderTraceSubmissionsTable() {
+    const tableBody = document.getElementById('traces-submissions-table-body');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = '';
+    cachedTraceSessions.forEach((session, idx) => {
+        const tr = document.createElement('tr');
+        tr.className = 'trace-row';
+        tr.id = `trace-row-${session.trace_id}`;
+        tr.onclick = () => selectTraceSubmission(session.trace_id);
+
+        const timeStr = session.start_time ? new Date(session.start_time).toLocaleString() : '--';
+        
+        let scoreHtml = '<span style="color: var(--text-muted); font-size: 0.8rem;">In Progress...</span>';
+        if (session.overall_score !== null && session.overall_score !== undefined) {
+            const scoreVal = Number(session.overall_score);
+            const gradeLetter = session.letter_grade || '';
+            const color = scoreVal >= 80 ? 'var(--success)' : (scoreVal >= 60 ? 'var(--warning)' : 'var(--danger)');
+            scoreHtml = `<span style="font-weight: 700; color: ${color};">${scoreVal.toFixed(1)}%</span> <span class="grade-badge" style="font-size: 0.68rem; padding: 2px 6px; margin-left: 4px;">${gradeLetter}</span>`;
+        }
+
+        const modelDisplay = session.model_name || 'Google Gemini';
+
+        tr.innerHTML = `
+            <td>
+                <strong style="color: #f8fafc; font-size: 0.88rem;">${escapeHtml(session.student_name)}</strong>
+            </td>
+            <td>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--text-muted); max-width: 260px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(session.folder_name)}">
+                    ${escapeHtml(session.folder_name)}
+                </span>
+            </td>
+            <td>
+                <span style="font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; background: rgba(99,102,241,0.15); color: #818cf8; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(99,102,241,0.25);">
+                    🤖 ${escapeHtml(modelDisplay)}
+                </span>
+            </td>
+            <td>${scoreHtml}</td>
+            <td style="font-size: 0.8rem; color: var(--text-muted);">${timeStr}</td>
+            <td>
+                <span style="font-size: 0.76rem; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 10px; color: #94a3b8; font-weight: 600;">
+                    ${session.event_count || session.events.length} events
+                </span>
+            </td>
+        `;
+        tableBody.appendChild(tr);
+    });
+}
+
+// Select a Submission & Load Events in Bottom Box
+function selectTraceSubmission(traceId) {
+    const session = cachedTraceSessions.find(s => s.trace_id === traceId);
+    if (!session) return;
+
+    currentSelectedSession = session;
+    currentTraceEvents = session.events || [];
+
+    // Highlight selected row in Top Box
+    document.querySelectorAll('.trace-row').forEach(row => row.classList.remove('active-trace-row'));
+    const activeRow = document.getElementById(`trace-row-${traceId}`);
+    if (activeRow) {
+        activeRow.classList.add('active-trace-row');
+    }
+
+    // Update Bottom Box Headers
+    const titleEl = document.getElementById('selected-trace-title');
+    const badgeEl = document.getElementById('selected-trace-badge');
+    const subtitleEl = document.getElementById('selected-trace-subtitle');
+
+    if (titleEl) {
+        titleEl.innerHTML = `
+            <span>🔍 Trace Events: <span style="color: #60a5fa;">${escapeHtml(session.student_name)}</span></span>
+        `;
+    }
+
+    if (badgeEl) {
+        if (session.overall_score !== null && session.overall_score !== undefined) {
+            badgeEl.textContent = `${Number(session.overall_score).toFixed(1)}% (${session.letter_grade || '--'})`;
+            badgeEl.style.background = session.overall_score >= 80 ? 'rgba(16,185,129,0.15)' : (session.overall_score >= 60 ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)');
+            badgeEl.style.color = session.overall_score >= 80 ? '#34d399' : (session.overall_score >= 60 ? '#fbbf24' : '#f87171');
+        } else {
+            badgeEl.textContent = session.status || 'Active';
+            badgeEl.style.background = 'rgba(99,102,241,0.15)';
+            badgeEl.style.color = '#818cf8';
+        }
+    }
+
+    if (subtitleEl) {
+        const timeStr = session.start_time ? new Date(session.start_time).toLocaleString() : '--';
+        subtitleEl.innerHTML = `Target: <code>${escapeHtml(session.folder_name)}</code> &bull; Model: <strong>${escapeHtml(session.model_name)}</strong> &bull; Started: ${timeStr} &bull; Trace ID: <code>${escapeHtml(session.trace_id)}</code>`;
+    }
+
+    // Reset filter pill to ALL
+    currentTraceFilter = 'ALL';
+    document.querySelectorAll('.trace-pill').forEach(btn => btn.classList.remove('active'));
+    const allBtn = document.querySelector('.trace-pill');
+    if (allBtn) allBtn.classList.add('active');
+
+    // Render Events in Bottom Box
+    renderTraceEvents(currentTraceEvents);
+}
+
+// Filter Events by Type
+function filterTraceEvents(filterType, event) {
+    currentTraceFilter = filterType;
+    if (event && event.target) {
+        document.querySelectorAll('.trace-pill').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+    }
+
+    if (!currentSelectedSession) return;
+
+    if (filterType === 'ALL') {
+        renderTraceEvents(currentTraceEvents);
+    } else if (filterType === 'TOOL') {
+        const filtered = currentTraceEvents.filter(e => e.event_type === 'TOOL_INVOCATION' || e.event_type === 'TOOL_RESPONSE');
+        renderTraceEvents(filtered);
+    } else {
+        const filtered = currentTraceEvents.filter(e => e.event_type === filterType);
+        renderTraceEvents(filtered);
+    }
+}
+
+// Render Events in Bottom Box Container
+function renderTraceEvents(events) {
+    const container = document.getElementById('traces-events-container');
+    if (!container) return;
+
+    if (!events || events.length === 0) {
+        container.innerHTML = '<div class="text-center" style="padding: 40px; color: var(--text-muted);">No events match the selected filter.</div>';
+        return;
+    }
+
+    container.innerHTML = '';
+    events.forEach((ev, idx) => {
+        const card = document.createElement('div');
+        const evType = ev.event_type || 'EVENT';
+        const timeStr = ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString() : '';
+        const dur = ev.duration_ms ? `${ev.duration_ms.toFixed(1)} ms` : (ev.details && ev.details.duration_ms ? `${ev.details.duration_ms.toFixed(1)} ms` : '');
+        const details = ev.details || {};
+        const cardId = `log-detail-${idx}`;
+
+        let cardTypeClass = 'event-lifecycle';
+        let badgeClass = 'badge-pass';
+        let typeIcon = '📌';
+
+        if (evType === 'MODEL_CALL') {
+            cardTypeClass = 'event-model-call';
+            badgeClass = 'badge-partial';
+            typeIcon = '🤖';
+        } else if (evType === 'MODEL_RESPONSE') {
+            cardTypeClass = 'event-model-response';
+            badgeClass = 'badge-pass';
+            typeIcon = '⚡';
+        } else if (evType === 'SKILL_USAGE') {
+            cardTypeClass = 'event-skill';
+            badgeClass = 'badge-pass';
+            typeIcon = '🛠️';
+        } else if (evType.startsWith('TOOL')) {
+            cardTypeClass = 'event-tool';
+            badgeClass = 'badge-partial';
+            typeIcon = '🔧';
+        } else if (evType === 'TRACE_START' || evType === 'TRACE_END') {
+            cardTypeClass = 'event-lifecycle';
+            badgeClass = 'badge-pass';
+            typeIcon = '🏁';
+        }
+
+        card.className = `trace-event-card ${cardTypeClass}`;
+
+        let detailHtml = '';
+
+        if (evType === 'MODEL_CALL') {
+            detailHtml = `
+                <div style="font-size: 0.82rem; color: #93c5fd; margin-bottom: 6px;">
+                    <strong>Model:</strong> <code>${escapeHtml(details.model || 'Gemini')}</code> &bull; 
+                    <strong>Prompt Length:</strong> ${details.prompt_length_chars || 0} characters
+                </div>
+                <div style="font-size: 0.78rem; color: var(--text-muted); background: rgba(0,0,0,0.25); padding: 8px; border-radius: 6px; font-family: 'JetBrains Mono', monospace;">
+                    ${escapeHtml(details.prompt_preview || 'Prompt sent to Gemini API')}
+                </div>
+                ${details.full_prompt ? `
+                    <button class="raw-log-toggle" onclick="toggleLogContent('${cardId}')">
+                        <span>📄 View Full Prompt Payload</span>
+                    </button>
+                    <div id="${cardId}" class="hidden" style="margin-top: 8px;">
+                        <pre style="background: rgba(0,0,0,0.5); padding: 12px; border-radius: 6px; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; max-height: 240px; overflow-y: auto; color: #93c5fd; white-space: pre-wrap;">${escapeHtml(details.full_prompt)}</pre>
+                    </div>
+                ` : ''}
+            `;
+        } else if (evType === 'MODEL_RESPONSE') {
+            const tokens = details.usage_metadata ? `Prompt: ${details.usage_metadata.prompt_token_count || 0} &bull; Candidates: ${details.usage_metadata.candidates_token_count || 0} &bull; Total: ${details.usage_metadata.total_token_count || 0} tokens` : '';
+            detailHtml = `
+                <div style="font-size: 0.82rem; color: #86efac; margin-bottom: 6px;">
+                    <strong>Status:</strong> HTTP ${details.status_code || 200} OK &bull; 
+                    <strong>Model:</strong> <code>${escapeHtml(details.model || 'Gemini')}</code>
+                    ${tokens ? ` &bull; <span>${tokens}</span>` : ''}
+                </div>
+                <div style="font-size: 0.78rem; color: var(--text-muted); background: rgba(0,0,0,0.25); padding: 8px; border-radius: 6px; font-family: 'JetBrains Mono', monospace;">
+                    ${escapeHtml(details.response_preview || 'Gemini evaluation response received')}
+                </div>
+                ${details.full_response ? `
+                    <button class="raw-log-toggle" onclick="toggleLogContent('${cardId}')">
+                        <span>📊 View Raw Model Response JSON</span>
+                    </button>
+                    <div id="${cardId}" class="hidden" style="margin-top: 8px;">
+                        <pre style="background: rgba(0,0,0,0.5); padding: 12px; border-radius: 6px; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; max-height: 240px; overflow-y: auto; color: #86efac; white-space: pre-wrap;">${escapeHtml(JSON.stringify(details.full_response, null, 2))}</pre>
+                    </div>
+                ` : ''}
+            `;
+        } else if (evType === 'SKILL_USAGE') {
+            detailHtml = `
+                <div style="font-size: 0.82rem; color: #d8b4fe; margin-bottom: 6px;">
+                    <strong>Skill:</strong> <code>${escapeHtml(details.skill_name || 'SpecParser')}</code> &bull; 
+                    <strong>Status:</strong> ${escapeHtml(details.status || 'SUCCESS')}
+                </div>
+                <pre style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; font-size: 0.76rem; font-family: 'JetBrains Mono', monospace; color: #cbd5e1; margin: 0;">${escapeHtml(JSON.stringify({ inputs: details.inputs, outputs: details.outputs }, null, 2))}</pre>
+            `;
+        } else if (evType === 'TRACE_START') {
+            detailHtml = `
+                <div style="font-size: 0.82rem; color: #c7d2fe;">
+                    <strong>Initialized Trace:</strong> Evaluating <strong>${escapeHtml(details.student_name || '')}</strong> &bull; Target: <code>${escapeHtml(details.folder_name || '')}</code>
+                </div>
+            `;
+        } else if (evType === 'TRACE_END') {
+            detailHtml = `
+                <div style="font-size: 0.82rem; color: #86efac; margin-bottom: 4px;">
+                    <strong>Grading Completed:</strong> Score: <strong>${details.overall_score}% (${details.letter_grade})</strong>
+                </div>
+                <div style="font-size: 0.78rem; color: var(--text-muted);">${escapeHtml(details.summary || '')}</div>
+            `;
+        } else {
+            detailHtml = `
+                <pre style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; font-size: 0.76rem; font-family: 'JetBrains Mono', monospace; color: #cbd5e1; margin: 0;">${escapeHtml(JSON.stringify(details, null, 2))}</pre>
+            `;
+        }
+
+        card.innerHTML = `
+            <div class="trace-event-header">
+                <div>
+                    <span style="margin-right: 6px;">${typeIcon}</span>
+                    <span class="criterion-badge ${badgeClass}" style="font-size: 0.76rem; font-weight: 700;">${evType}</span>
+                    ${dur ? `<span style="margin-left: 8px; font-size: 0.78rem; color: #38bdf8; font-weight: 600;">⚡ ${dur}</span>` : ''}
+                </div>
+                <span style="font-size: 0.76rem; color: var(--text-muted);">${timeStr}</span>
+            </div>
+            ${detailHtml}
+        `;
+
+        container.appendChild(card);
+    });
+}
+
+// Toggle Collapsible Log Payloads
+function toggleLogContent(elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    el.classList.toggle('hidden');
+}
+
 
 // Open Drill-Down Modal Showing All Submissions for a Student
 async function openStudentModal(studentName) {
@@ -516,7 +1045,11 @@ async function openStudentModal(studentName) {
                         </a>
                     </div>
                 </div>
-                <div class="history-folder">Folder: ${escapeHtml(sub.folder_name)}</div>
+                <div class="history-folder">
+                    <span>Folder: ${escapeHtml(sub.folder_name)}</span>
+                    ${(sub.class_name || (details && details.class_name)) ? `<span style="margin-left: 8px; font-size: 0.75rem; background: rgba(255,255,255,0.06); color: #cbd5e1; padding: 2px 6px; border-radius: 4px;">🎓 ${escapeHtml(sub.class_name || (details && details.class_name))}</span>` : ''}
+                    ${(sub.assignment_name || (details && details.assignment_name)) ? `<span style="margin-left: 6px; font-size: 0.75rem; background: rgba(167,139,250,0.15); color: #a78bfa; padding: 2px 6px; border-radius: 4px;">📝 ${escapeHtml(sub.assignment_name || (details && details.assignment_name))}</span>` : ''}
+                </div>
                 ${details ? `<div class="history-summary">${escapeHtml(details.summary)}</div>` : ''}
                 ${criteriaHtml}
             `;

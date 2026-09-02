@@ -161,6 +161,21 @@ async def get_traces(limit: int = 50):
     return {"traces": tracer.get_trace_history(limit=limit)}
 
 
+@app.get("/api/traces/submissions")
+async def get_trace_submissions(limit: int = 100):
+    """Returns list of submissions grouped with their trace sessions for the Gemini Traces Viewer."""
+    return {"sessions": tracer.get_grouped_trace_sessions(limit=limit)}
+
+
+@app.get("/api/traces/sessions/{trace_id}")
+async def get_trace_session_detail(trace_id: str):
+    """Returns full trace details and events for a single submission session."""
+    session = tracer.get_trace_by_id(trace_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Trace session not found.")
+    return session
+
+
 @app.get("/api/available-folders")
 async def list_available_folders():
     """Utility endpoint to find folders with specifications to help user quickly test."""

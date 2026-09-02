@@ -256,6 +256,47 @@ def run_gemini():
             self.assertFalse(openai_audit["imported"])
             self.assertFalse(openai_audit["used"])
 
+    def test_telemetry_grouped_sessions(self):
+        """Verify TelemetryTracer groups trace events by submission/session."""
+        from core.telemetry import TelemetryTracer
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tracer = TelemetryTracer(output_dir=tmpdir)
+            
+            # Start trace 1
+            tid1 = tracer.start_trace("Student A", "/path/to/repoA")
+            tracer.log_model_call(tid1, "gemini-3.5-flash", "Prompt A")
+            tracer.log_model_response(tid1, "gemini-3.5-flash", {"candidates": []}, duration_ms=120.0)
+            tracer.finish_trace(tid1, overall_score=95.0, letter_grade="A", summary="Great work")
+
+            # Start trace 2
+            tid2 = tracer.start_trace("Student B", "/path/to/repoB")
+            tracer.finish_trace(tid2, overall_score=50.0, letter_grade="F", summary="Missing items")
+
+            sessions = tracer.get_grouped_trace_sessions()
+            self.assertEqual(len(sessions), 2)
+            self.assertEqual(sessions[0]["trace_id"], tid2)  # Newest first
+            self.assertEqual(sessions[1]["trace_id"], tid1)
+            self.assertEqual(sessions[1]["student_name"], "Student A")
+            self.assertEqual(sessions[1]["overall_score"], 95.0)
+            self.assertEqual(len(sessions[1]["events"]), 4)
+
+            # Test single session lookup
+            detail = tracer.get_trace_by_id(tid1)
+            self.assertIsNotNone(detail)
+            self.assertEqual(detail["student_name"], "Student A")
+
+    def test_instructor_multi_assignment_summaries(self):
+        """Verify that submitting for two assignments results in two distinct instructor view rows for the same student."""
+        self.storage.add_submission("Peeya", "/path/app", 100.0, "A+", class_name="Agent Engineering", assignment_name="AI Agent Assignments")
+        self.storage.add_submission("Peeya", "/path/app", 75.0, "C", class_name="Agent Engineering", assignment_name="Skill Assignments")
+
+        summaries = self.storage.get_instructor_student_summaries()
+        self.assertEqual(len(summaries), 2, "Expected two rows for the two distinct assignments submitted")
+        
+        assignments = {s.latest_assignment for s in summaries}
+        self.assertIn("AI Agent Assignments", assignments)
+        self.assertIn("Skill Assignments", assignments)
+
 
 if __name__ == "__main__":
     unittest.main()

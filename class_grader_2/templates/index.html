@@ -237,24 +237,104 @@
                     </div>
                 </div>
 
-                <!-- Students Table -->
+                <!-- INSTRUCTOR FILTER GROUPS (Group 1: Student Names & Group 2: Course & Assignment) -->
+                <div class="card" style="margin-bottom: 20px; padding: 16px 20px; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                        <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                            Filter Submissions
+                        </h4>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span id="instructor-active-filter-summary" style="font-size: 0.78rem; color: #94a3b8;">Showing all students</span>
+                            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem;" onclick="resetInstructorFilters()">
+                                Reset Filters
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <!-- Group 1: Student Names (Single Select) -->
+                        <div class="filter-group-card">
+                            <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #cbd5e1; margin-bottom: 6px;">
+                                👤 Filter by Student Name:
+                            </label>
+                            <select id="instructor-student-filter" class="form-input" style="padding: 8px 12px; font-size: 0.82rem; width: 100%;" onchange="handleInstructorStudentFilterChange()">
+                                <option value="">All Students</option>
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+
+                        <!-- Group 2: Course / Class & Assignment (Dependent Single Selects) -->
+                        <div class="filter-group-card" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <!-- Course / Class Dropdown -->
+                            <div>
+                                <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #cbd5e1; margin-bottom: 6px;">
+                                    🎓 Course / Class:
+                                </label>
+                                <select id="instructor-class-filter" class="form-input" style="padding: 8px 12px; font-size: 0.82rem; width: 100%;" onchange="handleInstructorClassFilterChange()">
+                                    <option value="">All Courses / Classes</option>
+                                    <!-- Populated dynamically -->
+                                </select>
+                            </div>
+
+                            <!-- Assignment Dropdown -->
+                            <div>
+                                <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #cbd5e1; margin-bottom: 6px;">
+                                    📝 Assignment:
+                                </label>
+                                <select id="instructor-assignment-filter" class="form-input" style="padding: 8px 12px; font-size: 0.82rem; width: 100%;" onchange="handleInstructorAssignmentFilterChange()">
+                                    <option value="">All Assignments</option>
+                                    <!-- Populated dynamically -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Students Table with Course/Class, Assignment & Click-to-Sort Headers -->
                 <div class="card table-card">
                     <div class="table-responsive">
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Student Name (Click to View All)</th>
-                                    <th>Highest Score</th>
-                                    <th>Latest Submission Score</th>
-                                    <th>Model Used</th>
-                                    <th>Latest Submission Time</th>
-                                    <th>Total Submissions</th>
+                                    <th class="sortable-th" onclick="handleInstructorSort('student_name')">
+                                        <span>Student Name (Click to View All)</span>
+                                        <span class="sort-icon" id="sort-icon-student_name">↕</span>
+                                    </th>
+                                    <th class="sortable-th" onclick="handleInstructorSort('latest_class')">
+                                        <span>Course / Class</span>
+                                        <span class="sort-icon" id="sort-icon-latest_class">↕</span>
+                                    </th>
+                                    <th class="sortable-th" onclick="handleInstructorSort('latest_assignment')">
+                                        <span>Assignment</span>
+                                        <span class="sort-icon" id="sort-icon-latest_assignment">↕</span>
+                                    </th>
+                                    <th class="sortable-th" onclick="handleInstructorSort('highest_score')">
+                                        <span>Highest Score</span>
+                                        <span class="sort-icon" id="sort-icon-highest_score">▼</span>
+                                    </th>
+                                    <th class="sortable-th" onclick="handleInstructorSort('latest_score')">
+                                        <span>Latest Submission Score</span>
+                                        <span class="sort-icon" id="sort-icon-latest_score">↕</span>
+                                    </th>
+                                    <th class="sortable-th" onclick="handleInstructorSort('latest_model_used')">
+                                        <span>Model Used</span>
+                                        <span class="sort-icon" id="sort-icon-latest_model_used">↕</span>
+                                    </th>
+                                    <th class="sortable-th" onclick="handleInstructorSort('latest_submission_time')">
+                                        <span>Latest Submission Time</span>
+                                        <span class="sort-icon" id="sort-icon-latest_submission_time">↕</span>
+                                    </th>
+                                    <th class="sortable-th" onclick="handleInstructorSort('total_submissions')">
+                                        <span>Total Submissions</span>
+                                        <span class="sort-icon" id="sort-icon-total_submissions">↕</span>
+                                    </th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody id="instructor-table-body">
                                 <tr>
-                                    <td colspan="7" class="text-center">Loading student records...</td>
+                                    <td colspan="9" class="text-center">Loading student records...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -275,9 +355,60 @@
                     </button>
                 </div>
 
+                <!-- BOX 1 (TOP): Scrollable List of Submissions -->
+                <div class="card" style="margin-bottom: 22px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-wrap: wrap; gap: 8px;">
+                        <div>
+                            <h3 style="font-size: 1.05rem; font-weight: 700; color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 8px;">
+                                <span>📋 Submissions Trace History</span>
+                                <span id="traces-submission-count" style="font-size: 0.75rem; background: rgba(99,102,241,0.2); color: #818cf8; padding: 2px 8px; border-radius: 12px; font-weight: 600;">0 submissions</span>
+                            </h3>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 4px 0 0 0;">Click on any submission below to view its associated Gemini events, prompt traces, and execution logs.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive" style="max-height: 260px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; background: rgba(0,0,0,0.2);">
+                        <table class="data-table" style="margin: 0;">
+                            <thead style="position: sticky; top: 0; background: #1e293b; z-index: 10;">
+                                <tr>
+                                    <th>Student Name</th>
+                                    <th>Repository / Folder</th>
+                                    <th>Model Used</th>
+                                    <th>Score / Grade</th>
+                                    <th>Submission Time</th>
+                                    <th>Events</th>
+                                </tr>
+                            </thead>
+                            <tbody id="traces-submissions-table-body">
+                                <tr>
+                                    <td colspan="6" class="text-center" style="padding: 24px; color: var(--text-muted);">Loading submissions...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- BOX 2 (BOTTOM): Events and Logs for Selected Submission -->
                 <div class="card trace-card">
-                    <div id="traces-list" class="traces-timeline">
-                        <div class="text-center" style="padding: 30px; color: var(--text-muted);">Loading traces...</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h3 id="selected-trace-title" style="font-size: 1.05rem; font-weight: 700; color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 8px;">
+                                <span>🔍 Trace Events & Execution Log</span>
+                                <span id="selected-trace-badge" style="font-size: 0.75rem; background: rgba(16,185,129,0.15); color: #34d399; padding: 2px 8px; border-radius: 6px; font-weight: 600;">--</span>
+                            </h3>
+                            <p id="selected-trace-subtitle" style="font-size: 0.8rem; color: var(--text-muted); margin: 4px 0 0 0;">Select a submission above to view its detailed event timeline.</p>
+                        </div>
+                        <div id="trace-filter-pills" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <button class="trace-pill active" onclick="filterTraceEvents('ALL', event)">All Events</button>
+                            <button class="trace-pill" onclick="filterTraceEvents('MODEL_CALL', event)">Model Calls</button>
+                            <button class="trace-pill" onclick="filterTraceEvents('MODEL_RESPONSE', event)">Model Responses</button>
+                            <button class="trace-pill" onclick="filterTraceEvents('SKILL_USAGE', event)">Skills</button>
+                            <button class="trace-pill" onclick="filterTraceEvents('TOOL', event)">Tools</button>
+                        </div>
+                    </div>
+
+                    <div id="traces-events-container" class="traces-timeline" style="max-height: 520px; overflow-y: auto; padding-right: 6px;">
+                        <div class="text-center" style="padding: 40px; color: var(--text-muted);">Select a submission from the top box to inspect its trace logs.</div>
                     </div>
                 </div>
             </section>
