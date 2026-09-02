@@ -24,18 +24,19 @@ class Grader:
         if not student_name or not student_name.strip():
             raise ValueError("Student name is required.")
         
-        folder_input = folder_name.strip()
+        folder_input = folder_name.strip().strip("'").strip('"')
         
-        # 1. Resolve GitHub URL or local path
+        # 1. Resolve GitHub URL or local machine path
         if GitFetcher.is_git_url(folder_input):
             target_folder = GitFetcher.resolve_and_fetch(folder_input, explicit_subfolder=subfolder)
         else:
-            target_folder = folder_input
+            expanded = os.path.abspath(os.path.expanduser(folder_input))
             if subfolder:
-                target_folder = os.path.join(target_folder, subfolder)
+                expanded = os.path.join(expanded, subfolder)
+            target_folder = expanded
 
         if not os.path.exists(target_folder):
-            raise FileNotFoundError(f"Target folder '{target_folder}' does not exist.")
+            raise FileNotFoundError(f"Target folder '{target_folder}' does not exist on local machine. Please enter a valid directory path or GitHub repository URL.")
         
         if not os.path.isdir(target_folder):
             raise NotADirectoryError(f"Provided path '{target_folder}' is not a directory.")

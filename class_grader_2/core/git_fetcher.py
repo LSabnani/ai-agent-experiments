@@ -12,15 +12,24 @@ class GitFetcher:
 
     @staticmethod
     def is_git_url(path_or_url: str) -> bool:
-        """Returns True if the string looks like a GitHub/Git repository URL."""
+        """Returns True if the string looks like a GitHub/Git repository URL and is not an existing local folder."""
         if not path_or_url:
             return False
-        clean = path_or_url.strip()
+        clean = path_or_url.strip().strip("'").strip('"')
+        
+        # If it exists on the local filesystem as a folder or file, treat as local path
+        try:
+            expanded = os.path.abspath(os.path.expanduser(clean))
+            if os.path.exists(expanded):
+                return False
+        except Exception:
+            pass
+
         return (
             clean.startswith("http://") 
             or clean.startswith("https://") 
             or clean.startswith("git@") 
-            or "github.com/" in clean
+            or clean.startswith("github.com/")
             or clean.endswith(".git")
         )
 

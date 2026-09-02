@@ -90,33 +90,25 @@
                             </div>
 
                             <div class="form-group">
-                                <label for="folder-path">Project Folder or GitHub Repository URL</label>
+                                <label for="folder-path">Repository or Local Machine Folder</label>
                                 <div class="input-wrapper">
                                     <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                                    <input type="text" id="folder-path" placeholder="https://github.com/owner/repo or /path/to/folder" required autocomplete="off">
+                                    <input type="text" id="folder-path" placeholder="e.g. /path/to/local/folder or https://github.com/owner/repo/tree/main/subfolder" required autocomplete="off">
                                 </div>
-                                <small style="color: var(--text-muted); font-size: 0.76rem; margin-top: 4px; display: block;">Supports full GitHub URLs (e.g. <code>https://github.com/user/repo/tree/main/subfolder</code>)</small>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="subfolder-path">Subfolder in Repository (Optional)</label>
-                                <div class="input-wrapper">
-                                    <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                                    <input type="text" id="subfolder-path" placeholder="e.g. lab1, assignments/hw2 (optional)" autocomplete="off">
-                                </div>
+                                <small style="color: var(--text-muted); font-size: 0.76rem; margin-top: 4px; display: block;">Enter either a local machine directory path or a GitHub repository URL (with optional <code>/tree/branch/subfolder</code>).</small>
                             </div>
 
                             <!-- Quick Sample Folder Selector -->
                             <div class="quick-samples">
                                 <span class="samples-label">Quick select sample:</span>
                                 <div id="sample-badges" class="sample-badges">
-                                    <button type="button" class="sample-chip" onclick="setSample('Alice Johnson', 'sample_submissions/student_alice_perfect', '')">
+                                    <button type="button" class="sample-chip" onclick="setSample('Alice Johnson', 'sample_submissions/student_alice_perfect')">
                                         🌟 Alice (Perfect Spec Match)
                                     </button>
-                                    <button type="button" class="sample-chip" onclick="setSample('Bob Smith', 'sample_submissions/student_bob_partial', '')">
+                                    <button type="button" class="sample-chip" onclick="setSample('Bob Smith', 'sample_submissions/student_bob_partial')">
                                         ⚡ Bob (Partial Match)
                                     </button>
-                                    <button type="button" class="sample-chip" onclick="setSample('Travel Builder', '/home/pi-net/Documents/agent_eng_labs/agent_engineering/my-apps/travel-Itinerary-builder', '')">
+                                    <button type="button" class="sample-chip" onclick="setSample('Travel Builder', '/home/pi-net/Documents/agent_eng_labs/agent_engineering/my-apps/travel-Itinerary-builder')">
                                         🗺️ Travel Itinerary Multi-Agent
                                     </button>
                                 </div>

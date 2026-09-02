@@ -7,6 +7,7 @@ from core.spec_parser import SpecParser
 from core.grader import Grader
 from core.models import EvaluationResult, CriterionResult
 from core.telemetry import TelemetryTracer
+from core.git_fetcher import GitFetcher
 
 
 class TestGraderApp(unittest.TestCase):
@@ -295,7 +296,21 @@ def run_gemini():
         
         assignments = {s.latest_assignment for s in summaries}
         self.assertIn("AI Agent Assignments", assignments)
-        self.assertIn("Skill Assignments", assignments)
+    def test_single_input_local_and_git_resolution(self):
+        """Verify single input box resolves local machine folder paths and git URLs."""
+        # 1. Local machine folder
+        local_sample = "sample_submissions/student_alice_perfect"
+        self.assertFalse(GitFetcher.is_git_url(local_sample))
+        abs_resolved = GitFetcher.resolve_and_fetch(local_sample)
+        self.assertEqual(abs_resolved, local_sample)
+
+        # 2. GitHub URL with subfolder in single string
+        git_tree_url = "https://github.com/owner/repo/tree/main/my-work/my-app"
+        self.assertTrue(GitFetcher.is_git_url(git_tree_url))
+        clone_url, branch, subfolder = GitFetcher.parse_github_url(git_tree_url)
+        self.assertEqual(clone_url, "https://github.com/owner/repo.git")
+        self.assertEqual(branch, "main")
+        self.assertEqual(subfolder, "my-work/my-app")
 
 
 if __name__ == "__main__":

@@ -112,13 +112,9 @@ function switchTab(tab) {
     }
 }
 
-function setSample(name, folder, subfolder = '') {
+function setSample(name, folder) {
     document.getElementById('student-name').value = name;
     document.getElementById('folder-path').value = folder;
-    const subfolderEl = document.getElementById('subfolder-path');
-    if (subfolderEl) {
-        subfolderEl.value = subfolder;
-    }
 }
 
 // Handle Form Submission for Grading
@@ -127,8 +123,6 @@ async function handleGradeSubmit(event) {
 
     const studentName = document.getElementById('student-name').value.trim();
     const folderPath = document.getElementById('folder-path').value.trim();
-    const subfolderEl = document.getElementById('subfolder-path');
-    const subfolder = subfolderEl ? subfolderEl.value.trim() : '';
 
     const classSelect = document.getElementById('class-select');
     const assignmentSelect = document.getElementById('assignment-select');
@@ -147,7 +141,7 @@ async function handleGradeSubmit(event) {
     statusBanner.className = 'status-banner loading';
     statusBanner.textContent = isGit 
         ? '⏳ Fetching repository from GitHub & evaluating with Gemini...' 
-        : '⏳ Evaluating codebase with Gemini & logging telemetry traces...';
+        : '⏳ Reading local folder & evaluating codebase with Gemini...';
     statusBanner.classList.remove('hidden');
     submitBtn.disabled = true;
 
@@ -158,7 +152,7 @@ async function handleGradeSubmit(event) {
             body: JSON.stringify({
                 student_name: studentName,
                 folder_name: folderPath,
-                subfolder: subfolder || null,
+                subfolder: null,
                 class_name: className || null,
                 assignment_name: assignmentName || null
             })
