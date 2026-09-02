@@ -966,4 +966,18 @@ body {
     accent-color: #6366f1;
 }
 
+input[type="date"].form-input {
+    color-scheme: dark;
+    background: rgba(15, 23, 42, 0.6);
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+input[type="date"].form-input::-webkit-calendar-picker-indicator {
+    filter: invert(0.85);
+    cursor: pointer;
+}
+
 

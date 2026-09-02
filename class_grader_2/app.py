@@ -162,7 +162,7 @@ async def get_traces(limit: int = 50):
 
 
 @app.get("/api/traces/submissions")
-async def get_trace_submissions(limit: int = 100):
+async def get_trace_submissions(limit: int = 500):
     """Returns list of submissions grouped with their trace sessions for the Gemini Traces Viewer."""
     return {"sessions": tracer.get_grouped_trace_sessions(limit=limit)}
 

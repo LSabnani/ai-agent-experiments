@@ -31,6 +31,14 @@ async function loadSubmissionsConfig() {
             classSelect.value = submissionsConfigData.classes[0];
             handleClassChange();
         }
+
+        // Refresh instructor and trace filter dropdowns with the loaded config
+        if (typeof cachedTraceSessions !== 'undefined' && cachedTraceSessions && cachedTraceSessions.length > 0) {
+            populateTraceFilters(cachedTraceSessions);
+        }
+        if (typeof instructorStudentsData !== 'undefined' && instructorStudentsData && instructorStudentsData.length > 0) {
+            populateInstructorClassAndAssignmentFilters(instructorStudentsData);
+        }
     } catch (e) {
         console.error('Failed to load submissions config:', e);
     }
@@ -381,14 +389,13 @@ function populateInstructorClassAndAssignmentFilters(students) {
     const classSelect = document.getElementById('instructor-class-filter');
     if (!classSelect) return;
 
-    // Collect all unique classes from config and student records
+    // Collect courses strictly from SUBMISSIONS.yaml
     const classSet = new Set();
-    if (submissionsConfigData && submissionsConfigData.classes) {
+    if (submissionsConfigData && Array.isArray(submissionsConfigData.classes)) {
         submissionsConfigData.classes.forEach(c => classSet.add(c));
+    } else if (submissionsConfigData && submissionsConfigData.config) {
+        Object.keys(submissionsConfigData.config).forEach(c => classSet.add(c));
     }
-    students.forEach(s => {
-        if (s.latest_class && s.latest_class !== '--') classSet.add(s.latest_class);
-    });
 
     const currentClass = classSelect.value || instructorSelectedClass;
     classSelect.innerHTML = '<option value="">All Courses / Classes</option>';
@@ -430,21 +437,17 @@ function updateAssignmentDropdownOptions() {
     const assignmentSet = new Set();
 
     if (instructorSelectedClass && submissionsConfigData && submissionsConfigData.config && submissionsConfigData.config[instructorSelectedClass]) {
+        // Course selected: ONLY show assignments for this course from SUBMISSIONS.yaml
         Object.keys(submissionsConfigData.config[instructorSelectedClass]).forEach(a => assignmentSet.add(a));
     } else {
-        // Collect from all config and student records
+        // All courses: show assignments defined across courses in SUBMISSIONS.yaml
         if (submissionsConfigData && submissionsConfigData.config) {
             Object.values(submissionsConfigData.config).forEach(assignObj => {
-                Object.keys(assignObj).forEach(a => assignmentSet.add(a));
+                if (assignObj && typeof assignObj === 'object') {
+                    Object.keys(assignObj).forEach(a => assignmentSet.add(a));
+                }
             });
         }
-        instructorStudentsData.forEach(s => {
-            if (s.latest_assignment && s.latest_assignment !== '--') {
-                if (!instructorSelectedClass || s.latest_class === instructorSelectedClass) {
-                    assignmentSet.add(s.latest_assignment);
-                }
-            }
-        });
     }
 
     const uniqueAssignments = Array.from(assignmentSet).sort();
@@ -648,11 +651,18 @@ function renderInstructorTable() {
 
 
 
-// State for Gemini Traces Viewer 2-Box Layout
+// State for Gemini Traces Viewer 2-Box Layout & Filtering
 let cachedTraceSessions = [];
 let currentSelectedSession = null;
 let currentTraceEvents = [];
 let currentTraceFilter = 'ALL';
+
+// Filter state for Traces Viewer
+let traceSelectedStudent = '';
+let traceSelectedClass = '';
+let traceSelectedAssignment = '';
+let traceDateFrom = '';
+let traceDateTo = '';
 
 // Load Gemini Telemetry Traces (Submissions in Top Box & Events in Bottom Box)
 async function loadTracesData() {
@@ -661,11 +671,11 @@ async function loadTracesData() {
     const eventsContainer = document.getElementById('traces-events-container');
 
     if (tableBody) {
-        tableBody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 24px;">Fetching submission traces from outputs/gemini_traces.jsonl...</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="8" class="text-center" style="padding: 24px;">Fetching submission traces from outputs/gemini_traces.jsonl...</td></tr>';
     }
 
     try {
-        const response = await fetch('/api/traces/submissions?limit=100');
+        const response = await fetch('/api/traces/submissions?limit=500');
         const data = await response.json();
         cachedTraceSessions = data.sessions || [];
 
@@ -675,7 +685,7 @@ async function loadTracesData() {
 
         if (cachedTraceSessions.length === 0) {
             if (tableBody) {
-                tableBody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 30px; color: var(--text-muted);">No telemetry traces recorded yet. Run a grading evaluation to generate traces.</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="8" class="text-center" style="padding: 30px; color: var(--text-muted);">No telemetry traces recorded yet. Run a grading evaluation to generate traces.</td></tr>';
             }
             if (eventsContainer) {
                 eventsContainer.innerHTML = '<div class="text-center" style="padding: 40px; color: var(--text-muted);">No traces found. Submit a repository for grading first.</div>';
@@ -683,28 +693,231 @@ async function loadTracesData() {
             return;
         }
 
-        // Render Top Box (Submissions Table)
-        renderTraceSubmissionsTable();
+        // Populate dropdown filter options
+        populateTraceFilters(cachedTraceSessions);
 
-        // Automatically select the first (latest) submission
-        if (cachedTraceSessions.length > 0) {
-            selectTraceSubmission(cachedTraceSessions[0].trace_id);
-        }
+        // Render Top Box filtered table
+        renderFilteredTraceSubmissions();
 
     } catch (err) {
         if (tableBody) {
-            tableBody.innerHTML = `<tr><td colspan="6" class="text-center" style="color: var(--danger); padding: 20px;">Error loading traces: ${escapeHtml(err.message)}</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="color: var(--danger); padding: 20px;">Error loading traces: ${escapeHtml(err.message)}</td></tr>`;
         }
     }
 }
 
-// Render Top Box: Submissions Table
-function renderTraceSubmissionsTable() {
+// Populate Trace Filter Dropdowns: Student, Course, and Assignment
+function populateTraceFilters(sessions) {
+    const studentSelect = document.getElementById('trace-student-filter');
+    const classSelect = document.getElementById('trace-class-filter');
+
+    // 1. Populate Student Filter
+    if (studentSelect) {
+        const students = Array.from(new Set(
+            sessions.map(s => (s.student_name || '').trim()).filter(Boolean)
+        )).sort((a, b) => a.localeCompare(b));
+
+        let sOptions = '<option value="">All Students</option>';
+        students.forEach(st => {
+            const sel = st.toLowerCase() === traceSelectedStudent.toLowerCase() ? 'selected' : '';
+            sOptions += `<option value="${escapeHtml(st)}" ${sel}>${escapeHtml(st)}</option>`;
+        });
+        studentSelect.innerHTML = sOptions;
+    }
+
+    // 2. Populate Course / Class Filter strictly from SUBMISSIONS.yaml
+    if (classSelect) {
+        const classSet = new Set();
+        if (submissionsConfigData && Array.isArray(submissionsConfigData.classes)) {
+            submissionsConfigData.classes.forEach(c => classSet.add(c));
+        } else if (submissionsConfigData && submissionsConfigData.config) {
+            Object.keys(submissionsConfigData.config).forEach(c => classSet.add(c));
+        }
+
+        const allClasses = Array.from(classSet).sort((a, b) => a.localeCompare(b));
+
+        let cOptions = '<option value="">All Courses / Classes</option>';
+        allClasses.forEach(cls => {
+            const sel = cls.toLowerCase() === traceSelectedClass.toLowerCase() ? 'selected' : '';
+            cOptions += `<option value="${escapeHtml(cls)}" ${sel}>${escapeHtml(cls)}</option>`;
+        });
+        classSelect.innerHTML = cOptions;
+    }
+
+    // 3. Populate Assignment Filter (dependent on traceSelectedClass)
+    updateTraceAssignmentDropdown();
+}
+
+// Update Assignment Dropdown in Traces view based on selected course
+function updateTraceAssignmentDropdown() {
+    const assignSelect = document.getElementById('trace-assignment-filter');
+    if (!assignSelect) return;
+
+    let availableAssignments = [];
+
+    if (traceSelectedClass) {
+        // Course selected: ONLY show assignments for this course from SUBMISSIONS.yaml
+        if (submissionsConfigData && submissionsConfigData.config && submissionsConfigData.config[traceSelectedClass]) {
+            availableAssignments = Object.keys(submissionsConfigData.config[traceSelectedClass]);
+        }
+    } else {
+        // All courses: show assignments defined across courses in SUBMISSIONS.yaml
+        if (submissionsConfigData && submissionsConfigData.config) {
+            Object.values(submissionsConfigData.config).forEach(classMap => {
+                if (classMap && typeof classMap === 'object') {
+                    Object.keys(classMap).forEach(asg => {
+                        if (!availableAssignments.includes(asg)) {
+                            availableAssignments.push(asg);
+                        }
+                    });
+                }
+            });
+        }
+    }
+
+    availableAssignments.sort((a, b) => a.localeCompare(b));
+
+    let aOptions = '<option value="">All Assignments</option>';
+    let assignmentStillValid = false;
+
+    availableAssignments.forEach(asg => {
+        const sel = asg.toLowerCase() === traceSelectedAssignment.toLowerCase();
+        if (sel) assignmentStillValid = true;
+        aOptions += `<option value="${escapeHtml(asg)}" ${sel ? 'selected' : ''}>${escapeHtml(asg)}</option>`;
+    });
+
+    assignSelect.innerHTML = aOptions;
+    if (!assignmentStillValid && traceSelectedAssignment !== '') {
+        traceSelectedAssignment = '';
+        assignSelect.value = '';
+    }
+}
+
+// Trace Filter Event Handlers
+function handleTraceStudentFilterChange() {
+    const el = document.getElementById('trace-student-filter');
+    traceSelectedStudent = el ? el.value.trim() : '';
+    renderFilteredTraceSubmissions();
+}
+
+function handleTraceClassFilterChange() {
+    const el = document.getElementById('trace-class-filter');
+    traceSelectedClass = el ? el.value.trim() : '';
+    updateTraceAssignmentDropdown();
+    renderFilteredTraceSubmissions();
+}
+
+function handleTraceAssignmentFilterChange() {
+    const el = document.getElementById('trace-assignment-filter');
+    traceSelectedAssignment = el ? el.value.trim() : '';
+    renderFilteredTraceSubmissions();
+}
+
+function handleTraceDateFilterChange() {
+    const fromEl = document.getElementById('trace-date-from');
+    const toEl = document.getElementById('trace-date-to');
+    traceDateFrom = fromEl ? fromEl.value.trim() : '';
+    traceDateTo = toEl ? toEl.value.trim() : '';
+    renderFilteredTraceSubmissions();
+}
+
+function resetTraceFilters() {
+    traceSelectedStudent = '';
+    traceSelectedClass = '';
+    traceSelectedAssignment = '';
+    traceDateFrom = '';
+    traceDateTo = '';
+
+    const sEl = document.getElementById('trace-student-filter');
+    const cEl = document.getElementById('trace-class-filter');
+    const aEl = document.getElementById('trace-assignment-filter');
+    const dFromEl = document.getElementById('trace-date-from');
+    const dToEl = document.getElementById('trace-date-to');
+
+    if (sEl) sEl.value = '';
+    if (cEl) cEl.value = '';
+    if (aEl) aEl.value = '';
+    if (dFromEl) dFromEl.value = '';
+    if (dToEl) dToEl.value = '';
+
+    updateTraceAssignmentDropdown();
+    renderFilteredTraceSubmissions();
+}
+
+// Render Top Box: Submissions Table filtered by Student, Course, Assignment, Date Range
+function renderFilteredTraceSubmissions() {
     const tableBody = document.getElementById('traces-submissions-table-body');
+    const countBadge = document.getElementById('traces-submission-count');
+    const summaryEl = document.getElementById('traces-active-filter-summary');
     if (!tableBody) return;
 
+    let filtered = cachedTraceSessions.filter(s => {
+        // 1. Student Name Filter
+        if (traceSelectedStudent) {
+            const studentName = (s.student_name || '').trim();
+            if (studentName.toLowerCase() !== traceSelectedStudent.toLowerCase()) {
+                return false;
+            }
+        }
+
+        // 2. Course / Class Filter
+        if (traceSelectedClass) {
+            const sessionClass = (s.class_name || '').trim();
+            if (!sessionClass || sessionClass.toLowerCase() !== traceSelectedClass.toLowerCase()) {
+                return false;
+            }
+        }
+
+        // 3. Assignment Filter
+        if (traceSelectedAssignment) {
+            const sessionAssign = (s.assignment_name || '').trim();
+            if (!sessionAssign || sessionAssign.toLowerCase() !== traceSelectedAssignment.toLowerCase()) {
+                return false;
+            }
+        }
+
+        // 4. Date Range Filter
+        if (traceDateFrom || traceDateTo) {
+            if (!s.start_time) return false;
+            const sessionTime = new Date(s.start_time).getTime();
+            if (isNaN(sessionTime)) return false;
+
+            if (traceDateFrom) {
+                const fromTime = new Date(traceDateFrom + 'T00:00:00').getTime();
+                if (!isNaN(fromTime) && sessionTime < fromTime) {
+                    return false;
+                }
+            }
+
+            if (traceDateTo) {
+                const toTime = new Date(traceDateTo + 'T23:59:59.999').getTime();
+                if (!isNaN(toTime) && sessionTime > toTime) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    });
+
+    if (countBadge) {
+        countBadge.textContent = `${filtered.length} submission${filtered.length === 1 ? '' : 's'}`;
+    }
+    if (summaryEl) {
+        summaryEl.textContent = `Showing ${filtered.length} of ${cachedTraceSessions.length} submissions`;
+    }
+
+    if (filtered.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="8" class="text-center" style="padding: 30px; color: var(--text-muted);">No trace submissions match the selected filters.</td></tr>';
+        const eventsContainer = document.getElementById('traces-events-container');
+        if (eventsContainer) {
+            eventsContainer.innerHTML = '<div class="text-center" style="padding: 40px; color: var(--text-muted);">No matching traces found for the current filter criteria.</div>';
+        }
+        return;
+    }
+
     tableBody.innerHTML = '';
-    cachedTraceSessions.forEach((session, idx) => {
+    filtered.forEach(session => {
         const tr = document.createElement('tr');
         tr.className = 'trace-row';
         tr.id = `trace-row-${session.trace_id}`;
@@ -721,13 +934,25 @@ function renderTraceSubmissionsTable() {
         }
 
         const modelDisplay = session.model_name || 'Google Gemini';
+        const className = session.class_name ? session.class_name.trim() : '';
+        const assignName = session.assignment_name ? session.assignment_name.trim() : '';
+
+        const classHtml = className 
+            ? `<span style="font-size: 0.76rem; font-weight: 600; color: #cbd5e1; background: rgba(255,255,255,0.05); padding: 2px 7px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08);">🎓 ${escapeHtml(className)}</span>` 
+            : `<span style="color: var(--text-muted); font-size: 0.76rem;">--</span>`;
+
+        const assignHtml = assignName 
+            ? `<span style="font-size: 0.76rem; font-weight: 600; color: #a78bfa; background: rgba(167,139,250,0.1); padding: 2px 7px; border-radius: 4px; border: 1px solid rgba(167,139,250,0.25);">📝 ${escapeHtml(assignName)}</span>` 
+            : `<span style="color: var(--text-muted); font-size: 0.76rem;">--</span>`;
 
         tr.innerHTML = `
             <td>
                 <strong style="color: #f8fafc; font-size: 0.88rem;">${escapeHtml(session.student_name)}</strong>
             </td>
+            <td>${classHtml}</td>
+            <td>${assignHtml}</td>
             <td>
-                <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--text-muted); max-width: 260px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(session.folder_name)}">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--text-muted); max-width: 230px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(session.folder_name)}">
                     ${escapeHtml(session.folder_name)}
                 </span>
             </td>
@@ -740,12 +965,20 @@ function renderTraceSubmissionsTable() {
             <td style="font-size: 0.8rem; color: var(--text-muted);">${timeStr}</td>
             <td>
                 <span style="font-size: 0.76rem; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 10px; color: #94a3b8; font-weight: 600;">
-                    ${session.event_count || session.events.length} events
+                    ${session.event_count || (session.events && session.events.length) || 0} events
                 </span>
             </td>
         `;
         tableBody.appendChild(tr);
     });
+
+    // Automatically select the first submission or maintain current selection if still present
+    const stillActive = currentSelectedSession && filtered.some(s => s.trace_id === currentSelectedSession.trace_id);
+    if (stillActive) {
+        selectTraceSubmission(currentSelectedSession.trace_id);
+    } else if (filtered.length > 0) {
+        selectTraceSubmission(filtered[0].trace_id);
+    }
 }
 
 // Select a Submission & Load Events in Bottom Box
@@ -788,7 +1021,9 @@ function selectTraceSubmission(traceId) {
 
     if (subtitleEl) {
         const timeStr = session.start_time ? new Date(session.start_time).toLocaleString() : '--';
-        subtitleEl.innerHTML = `Target: <code>${escapeHtml(session.folder_name)}</code> &bull; Model: <strong>${escapeHtml(session.model_name)}</strong> &bull; Started: ${timeStr} &bull; Trace ID: <code>${escapeHtml(session.trace_id)}</code>`;
+        const coursePart = session.class_name ? ` &bull; Course: <strong>${escapeHtml(session.class_name)}</strong>` : '';
+        const assignPart = session.assignment_name ? ` &bull; Assignment: <strong>${escapeHtml(session.assignment_name)}</strong>` : '';
+        subtitleEl.innerHTML = `Target: <code>${escapeHtml(session.folder_name)}</code>${coursePart}${assignPart} &bull; Model: <strong>${escapeHtml(session.model_name)}</strong> &bull; Started: ${timeStr} &bull; Trace ID: <code>${escapeHtml(session.trace_id)}</code>`;
     }
 
     // Reset filter pill to ALL

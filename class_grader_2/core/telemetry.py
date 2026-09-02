@@ -217,7 +217,7 @@ class TelemetryTracer:
             except Exception as e:
                 print(f"Warning: Failed to write trace to {trace_path}: {e}")
 
-    def get_grouped_trace_sessions(self, limit: int = 100) -> List[Dict[str, Any]]:
+    def get_grouped_trace_sessions(self, limit: int = 500) -> List[Dict[str, Any]]:
         """Returns list of submissions / trace sessions grouped with their events, sorted newest first."""
         if not os.path.exists(self.log_file):
             return []

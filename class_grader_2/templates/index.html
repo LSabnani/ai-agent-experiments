@@ -347,6 +347,64 @@
                     </button>
                 </div>
 
+                <!-- TRACES FILTER BAR: Student, Course, Assignment, Date Range -->
+                <div class="card" style="margin-bottom: 16px; padding: 16px 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-size: 0.92rem; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 6px;">
+                            <span>⚡ Filter Traces</span>
+                        </span>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span id="traces-active-filter-summary" style="font-size: 0.78rem; color: #94a3b8;">Showing all submissions</span>
+                            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem;" onclick="resetTraceFilters()">
+                                Reset Filters
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1.2fr; gap: 14px;">
+                        <!-- Filter 1: Student Name -->
+                        <div class="filter-group-card">
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #cbd5e1; margin-bottom: 6px;">
+                                👤 Student Name:
+                            </label>
+                            <select id="trace-student-filter" class="form-input" style="padding: 8px 12px; font-size: 0.82rem; width: 100%;" onchange="handleTraceStudentFilterChange()">
+                                <option value="">All Students</option>
+                            </select>
+                        </div>
+
+                        <!-- Filter 2: Course / Class -->
+                        <div class="filter-group-card">
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #cbd5e1; margin-bottom: 6px;">
+                                🎓 Course / Class:
+                            </label>
+                            <select id="trace-class-filter" class="form-input" style="padding: 8px 12px; font-size: 0.82rem; width: 100%;" onchange="handleTraceClassFilterChange()">
+                                <option value="">All Courses / Classes</option>
+                            </select>
+                        </div>
+
+                        <!-- Filter 3: Assignment (dependent on course) -->
+                        <div class="filter-group-card">
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #cbd5e1; margin-bottom: 6px;">
+                                📝 Assignment:
+                            </label>
+                            <select id="trace-assignment-filter" class="form-input" style="padding: 8px 12px; font-size: 0.82rem; width: 100%;" onchange="handleTraceAssignmentFilterChange()">
+                                <option value="">All Assignments</option>
+                            </select>
+                        </div>
+
+                        <!-- Filter 4: Date Range -->
+                        <div class="filter-group-card">
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #cbd5e1; margin-bottom: 6px;">
+                                📅 Date Range:
+                            </label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                                <input type="date" id="trace-date-from" class="form-input" style="padding: 7px 8px; font-size: 0.78rem; width: 100%;" title="Start Date" onchange="handleTraceDateFilterChange()">
+                                <input type="date" id="trace-date-to" class="form-input" style="padding: 7px 8px; font-size: 0.78rem; width: 100%;" title="End Date" onchange="handleTraceDateFilterChange()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- BOX 1 (TOP): Scrollable List of Submissions -->
                 <div class="card" style="margin-bottom: 22px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-wrap: wrap; gap: 8px;">
@@ -364,6 +422,8 @@
                             <thead style="position: sticky; top: 0; background: #1e293b; z-index: 10;">
                                 <tr>
                                     <th>Student Name</th>
+                                    <th>Course / Class</th>
+                                    <th>Assignment</th>
                                     <th>Repository / Folder</th>
                                     <th>Model Used</th>
                                     <th>Score / Grade</th>
@@ -373,7 +433,7 @@
                             </thead>
                             <tbody id="traces-submissions-table-body">
                                 <tr>
-                                    <td colspan="6" class="text-center" style="padding: 24px; color: var(--text-muted);">Loading submissions...</td>
+                                    <td colspan="8" class="text-center" style="padding: 24px; color: var(--text-muted);">Loading submissions...</td>
                                 </tr>
                             </tbody>
                         </table>

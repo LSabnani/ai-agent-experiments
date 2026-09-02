@@ -1,7 +1,16 @@
 # Additional Grading Criteria
+# Course Level 1:
+#   Assignments:
+#     - Manadatory Criteria
 Agent Engineering:
   AI Agent Assignments:
     - Code Uses AI Agent: 50%
   Skill Assignments:
-    - Code Uses SKills in Agent: 25%
+    - Code Uses Skills in Agent: 25%
     - Code Uses RAG in Agent: 25%
+#  Tool Engineering Assignments:
+#    - Code Uses Tools in Agent: 50%
+#  Multi-Agent Workflows and Human Approval Assignments:
+#    - Code Uses Multi-Agent Workflows: 50%
+#    - Code Uses Human Approval: 30%
+    
