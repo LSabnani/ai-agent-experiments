@@ -27,10 +27,10 @@ class Scheduler:
 
         Tracker.record_event(
             self.run_id,
-            "scheduler_iteration_start",
+            "agent_request",
             self.name,
             f"Scheduler starting iteration {iteration} (Feedback applied: {'Yes' if critic_feedback else 'No'})",
-            {"iteration": iteration, "critic_feedback": critic_feedback}
+            {"iteration": iteration, "destination": destination, "days": days, "budget": budget, "critic_feedback": critic_feedback}
         )
 
         flights = raw_research.get("flights", [])
@@ -79,15 +79,16 @@ class Scheduler:
 
         Tracker.record_event(
             self.run_id,
-            "scheduler_iteration_complete",
+            "agent_response",
             self.name,
             f"Scheduler compiled day-by-day plan for iteration {iteration}. Total cost: ${total_cost:.2f}",
             {
                 "iteration": iteration,
                 "total_estimated_cost": total_cost,
+                "cost_breakdown": state["current_itinerary"]["cost_breakdown"],
                 "flight": selected_flight.get("carrier"),
                 "hotel": selected_hotel.get("name"),
-                "days_count": len(schedule)
+                "schedule": schedule
             }
         )
         return state
@@ -214,10 +215,10 @@ class BudgetEnforcer:
 
         Tracker.record_event(
             self.run_id,
-            "budget_evaluation_start",
+            "agent_request",
             self.name,
             f"Evaluating budget for iteration {iteration}: Cost ${total_cost:.2f} vs Budget ${budget:.2f}",
-            {"iteration": iteration, "cost": total_cost, "budget": budget}
+            {"iteration": iteration, "cost": total_cost, "budget": budget, "max_iterations": max_iterations}
         )
 
         if total_cost <= budget:
@@ -225,10 +226,10 @@ class BudgetEnforcer:
             state["critic_feedback"] = f"Budget Approved: Total cost of ${total_cost:.2f} is within user budget of ${budget:.2f}."
             Tracker.record_event(
                 self.run_id,
-                "budget_approved",
+                "agent_response",
                 self.name,
                 f"Budget approved on iteration {iteration} (${total_cost:.2f} <= ${budget:.2f})",
-                {"total_cost": total_cost, "budget": budget, "surplus": round(budget - total_cost, 2)}
+                {"iteration": iteration, "budget_approved": True, "total_cost": total_cost, "budget": budget, "surplus": round(budget - total_cost, 2), "critic_feedback": state["critic_feedback"]}
             )
             return True
         else:
@@ -250,10 +251,10 @@ class BudgetEnforcer:
 
             Tracker.record_event(
                 self.run_id,
-                "budget_rejected",
+                "agent_response",
                 self.name,
                 f"Budget exceeded on iteration {iteration} (${total_cost:.2f} > ${budget:.2f}). Generating critic feedback.",
-                {"iteration": iteration, "cost": total_cost, "budget": budget, "overage": overage, "feedback": state["critic_feedback"]}
+                {"iteration": iteration, "budget_approved": False, "cost": total_cost, "budget": budget, "overage": overage, "critic_feedback": state["critic_feedback"]}
             )
             return False
 
@@ -270,10 +271,10 @@ class LoopAgent:
     def execute(self, state: Dict[str, Any]) -> Dict[str, Any]:
         Tracker.record_event(
             self.run_id,
-            "loop_agent_start",
+            "agent_request",
             "LoopAgent",
             f"Starting iterative refinement loop (Max iterations: {self.max_iterations})",
-            {"max_iterations": self.max_iterations}
+            {"max_iterations": self.max_iterations, "target_budget": state["user_input"]["budget"]}
         )
 
         for iteration in range(1, self.max_iterations + 1):
@@ -286,20 +287,20 @@ class LoopAgent:
             if approved:
                 Tracker.record_event(
                     self.run_id,
-                    "loop_agent_success",
+                    "agent_response",
                     "LoopAgent",
                     f"Refinement loop succeeded at iteration {iteration}.",
-                    {"iterations_used": iteration, "final_cost": state["current_itinerary"]["total_estimated_cost"]}
+                    {"iterations_used": iteration, "budget_approved": True, "final_cost": state["current_itinerary"]["total_estimated_cost"]}
                 )
                 break
             else:
                 if iteration == self.max_iterations:
                     Tracker.record_event(
                         self.run_id,
-                        "loop_agent_max_reached",
+                        "agent_response",
                         "LoopAgent",
                         f"Refinement loop reached max iterations ({self.max_iterations}) without reaching budget.",
-                        {"final_cost": state["current_itinerary"]["total_estimated_cost"], "budget": state["user_input"]["budget"]}
+                        {"iterations_used": iteration, "budget_approved": False, "final_cost": state["current_itinerary"]["total_estimated_cost"], "budget": state["user_input"]["budget"], "critic_feedback": state.get("critic_feedback")}
                     )
 
         return state

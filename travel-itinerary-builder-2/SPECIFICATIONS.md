@@ -12,7 +12,7 @@ Build Travel Itinerary Builder as an autonomous, multi-agent AI pipeline designe
 1. It should get the API Key from the environment variable GEMINI_API_KEY, model name from the environment variable GEMINI_MODEL, and fallback model name from the environment variable GEMINI_FALLBACK_MODEL. Use the fallback model name if the primary model name is not available.
 2. Use flask to build this application. Once the user submits the form, it will start generating the itinerary and display it in a user-friendly format in the same page.
 3. Store the information from each user request in a CSV file named usages.csv in the artifacts folder.
-4. Store the all the details about the interactions between agent, skills, tools, model invocations, and etc in a file named events.json in the artifacts folder. Include actual payload sent between entities and models. The event logs should be store in a single line.
+4. Store the invocations, requests, and responses of the agent, skills, tools, models, and etc in a file named events.json in the artifacts folder. Show actual payload sent and received between entities as they are generated or received. The event logs should be store in a single line.
 5. Create a button to allow the user to download the generated itinerary as a text or PDF file.
 6. There should be a button or tab at the top of the page to switch between the current itinerary and the history of itineraries and the event logs.
 7. The Itineraries & Events logs page should show the the counts of itineraries created, successful runs, failed runs, and the number of event logs stored.

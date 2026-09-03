@@ -44,10 +44,10 @@ class PipelineOrchestrator:
 
         Tracker.record_event(
             self.run_id,
-            "pipeline_start",
+            "pipeline_request",
             "PipelineOrchestrator",
-            f"Initialized itinerary pipeline for {safe_destination} ({safe_days} days, budget ${safe_budget:.2f})",
-            {"state_init": state}
+            f"Initialized itinerary pipeline request for {safe_destination} ({safe_days} days, budget ${safe_budget:.2f})",
+            {"user_input": state["user_input"]}
         )
 
         try:
@@ -82,7 +82,7 @@ class PipelineOrchestrator:
 
             Tracker.record_event(
                 self.run_id,
-                "pipeline_complete",
+                "pipeline_response",
                 "PipelineOrchestrator",
                 f"Completed pipeline execution. Status: {status}, Total Cost: ${final_cost:.2f}",
                 {
@@ -90,7 +90,8 @@ class PipelineOrchestrator:
                     "status": status,
                     "final_cost": final_cost,
                     "budget_approved": approved,
-                    "iterations": iterations
+                    "iterations": iterations,
+                    "current_itinerary": state.get("current_itinerary")
                 }
             )
 

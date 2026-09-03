@@ -353,8 +353,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const row = document.createElement("tr");
 
         let typeBadgeClass = "badge-neutral";
-        if (ev.event_type.includes("start")) typeBadgeClass = "badge-accent";
-        if (ev.event_type.includes("complete") || ev.event_type.includes("success") || ev.event_type.includes("approved")) typeBadgeClass = "badge-success";
+        if (ev.event_type.includes("request") || ev.event_type.includes("start")) typeBadgeClass = "badge-accent";
+        if (ev.event_type.includes("response") || ev.event_type.includes("complete") || ev.event_type.includes("success") || ev.event_type.includes("approved")) typeBadgeClass = "badge-success";
         if (ev.event_type.includes("rejected") || ev.event_type.includes("exceeded")) typeBadgeClass = "badge-warning";
         if (ev.event_type.includes("error") || ev.event_type.includes("failed")) typeBadgeClass = "badge-danger";
 

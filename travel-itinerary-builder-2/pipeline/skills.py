@@ -17,10 +17,10 @@ Be concise, inspiring, and culturally authentic.
 """
         Tracker.record_event(
             self.run_id,
-            "skill_invocation",
+            "skill_request",
             self.name,
             f"Generating local vibe tip for Day {day_number} in {neighborhood}",
-            {"destination": destination, "neighborhood": neighborhood, "day": day_number}
+            {"destination": destination, "neighborhood": neighborhood, "day": day_number, "prompt": prompt}
         )
         tip = self.gemini.generate_content(prompt, agent_source=self.name)
         cleaned = tip.strip().strip('"')
@@ -35,7 +35,7 @@ Be concise, inspiring, and culturally authentic.
 
         Tracker.record_event(
             self.run_id,
-            "skill_result",
+            "skill_response",
             self.name,
             f"Local vibe tip generated for Day {day_number} in {neighborhood}",
             {
@@ -64,10 +64,10 @@ Return ONLY valid JSON with keys: "title", "neighborhood", "description", "estim
 """
         Tracker.record_event(
             self.run_id,
-            "skill_invocation",
+            "skill_request",
             self.name,
             f"Discovering hidden gem in {destination}",
-            {"interests": interests, "prompt_sent": prompt}
+            {"interests": interests, "prompt": prompt}
         )
         resp = self.gemini.generate_content(prompt, agent_source=self.name)
         gem_data = None
@@ -96,7 +96,7 @@ Return ONLY valid JSON with keys: "title", "neighborhood", "description", "estim
 
         Tracker.record_event(
             self.run_id,
-            "skill_result",
+            "skill_response",
             self.name,
             f"Discovered hidden gem in {destination}: {gem_data.get('title')}",
             {

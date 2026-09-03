@@ -40,8 +40,9 @@ The system implements a **Sequential Pipeline** coordinating a **Parallel Discov
 +-------------------------------------------------------------------------+
 |                           Artifacts Logging                             |
 |  - artifacts/usages.csv : Request summary, costs, status, event count   |
-|  - artifacts/events.json: Event logs stored in a single line per record |
-|                           with actual payloads between entities & models|
+|  - artifacts/events.json: Single-line log per record of invocations,    |
+|                           requests, and responses of agents, skills,    |
+|                           and models with actual sent/received payloads |
 +------------------------------------+------------------------------------+
                                      |
                                      v

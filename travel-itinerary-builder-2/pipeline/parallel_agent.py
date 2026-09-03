@@ -36,10 +36,10 @@ Respond ONLY with a valid JSON array containing objects with these exact keys:
 """
         Tracker.record_event(
             self.run_id,
-            "agent_start",
+            "agent_request",
             self.name,
             f"Searching transit options from {origin} to {destination}",
-            {"origin": origin, "destination": destination, "budget": budget}
+            {"origin": origin, "destination": destination, "budget": budget, "departure_date": dep_date}
         )
 
         resp_text = self.gemini.generate_content(prompt, agent_source=self.name)
@@ -54,14 +54,12 @@ Respond ONLY with a valid JSON array containing objects with these exact keys:
 
         Tracker.record_event(
             self.run_id,
-            "agent_complete",
+            "agent_response",
             self.name,
             f"Identified {len(flights)} transport options for {destination}",
             {
-                "input_parameters": {"origin": origin, "destination": destination, "budget": budget, "departure_date": dep_date},
-                "prompt_sent": prompt,
-                "raw_model_response": resp_text,
-                "flights": flights
+                "flights": flights,
+                "raw_model_response": resp_text
             }
         )
         return flights
@@ -111,10 +109,10 @@ Respond ONLY with a valid JSON array containing objects with these exact keys:
 """
         Tracker.record_event(
             self.run_id,
-            "agent_start",
+            "agent_request",
             self.name,
             f"Researching accommodations in {destination} for {days} nights",
-            {"destination": destination, "days": days, "interests": interests}
+            {"destination": destination, "days": days, "interests": interests, "budget": budget}
         )
 
         resp_text = self.gemini.generate_content(prompt, agent_source=self.name)
@@ -129,14 +127,12 @@ Respond ONLY with a valid JSON array containing objects with these exact keys:
 
         Tracker.record_event(
             self.run_id,
-            "agent_complete",
+            "agent_response",
             self.name,
             f"Found {len(hotels)} accommodation options for {destination}",
             {
-                "input_parameters": {"destination": destination, "days": days, "budget": budget, "interests": interests},
-                "prompt_sent": prompt,
-                "raw_model_response": resp_text,
-                "hotels": hotels
+                "hotels": hotels,
+                "raw_model_response": resp_text
             }
         )
         return hotels
@@ -188,10 +184,10 @@ Respond ONLY with a valid JSON array containing objects with these exact keys:
 """
         Tracker.record_event(
             self.run_id,
-            "agent_start",
+            "agent_request",
             self.name,
             f"Compiling activities and attractions in {destination}",
-            {"destination": destination, "interests": interests}
+            {"destination": destination, "interests": interests, "days": days, "budget": budget}
         )
 
         resp_text = self.gemini.generate_content(prompt, agent_source=self.name)
@@ -210,14 +206,12 @@ Respond ONLY with a valid JSON array containing objects with these exact keys:
 
         Tracker.record_event(
             self.run_id,
-            "agent_complete",
+            "agent_response",
             self.name,
             f"Compiled {len(activities)} activities clustered across neighborhoods",
             {
-                "input_parameters": {"destination": destination, "days": days, "interests": interests, "budget": budget},
-                "prompt_sent": prompt,
-                "raw_model_response": resp_text,
-                "activities": activities
+                "activities": activities,
+                "raw_model_response": resp_text
             }
         )
         return activities
@@ -252,7 +246,7 @@ class ParallelAgent:
         user_input = state["user_input"]
         Tracker.record_event(
             self.run_id,
-            "parallel_agent_start",
+            "agent_request",
             "ParallelAgent",
             "Starting parallel discovery phase for transport, lodging, and activities",
             {"user_input": user_input}
@@ -273,13 +267,16 @@ class ParallelAgent:
 
         Tracker.record_event(
             self.run_id,
-            "parallel_agent_complete",
+            "agent_response",
             "ParallelAgent",
             f"Completed discovery phase: {len(flights)} flights, {len(hotels)} hotels, {len(activities)} activities found",
             {
                 "flights_count": len(flights),
                 "hotels_count": len(hotels),
-                "activities_count": len(activities)
+                "activities_count": len(activities),
+                "flights": flights,
+                "hotels": hotels,
+                "activities": activities
             }
         )
         return state

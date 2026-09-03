@@ -45,16 +45,25 @@ class GeminiService:
     def generate_content(self, prompt: str, system_instruction: Optional[str] = None, agent_source: str = "GeminiService") -> str:
         """Invokes Gemini with primary model, then falls back to fallback model if needed."""
         if not self.api_key or not self._client_type:
-            resp = self._mock_response(prompt, agent_source)
             Tracker.record_event(
                 self.run_id,
-                "model_invocation_mock",
+                "model_request",
                 agent_source,
-                "Simulated model invocation (no API key / client)",
+                f"Sending prompt to simulated model generator",
                 {
                     "model": "mock_generator",
                     "prompt": prompt,
-                    "system_instruction": system_instruction,
+                    "system_instruction": system_instruction
+                }
+            )
+            resp = self._mock_response(prompt, agent_source)
+            Tracker.record_event(
+                self.run_id,
+                "model_response",
+                agent_source,
+                f"Received response from simulated model generator",
+                {
+                    "model": "mock_generator",
                     "response": resp
                 }
             )
@@ -62,16 +71,25 @@ class GeminiService:
 
         # 1. Try Primary Model
         try:
-            response_text = self._call_model(self.primary_model, prompt, system_instruction)
             Tracker.record_event(
                 self.run_id,
-                "model_invocation_success",
+                "model_request",
                 agent_source,
-                f"Generated response using primary model: {self.primary_model}",
+                f"Sending prompt to primary model: {self.primary_model}",
                 {
                     "model": self.primary_model,
                     "prompt": prompt,
-                    "system_instruction": system_instruction,
+                    "system_instruction": system_instruction
+                }
+            )
+            response_text = self._call_model(self.primary_model, prompt, system_instruction)
+            Tracker.record_event(
+                self.run_id,
+                "model_response",
+                agent_source,
+                f"Received response from primary model: {self.primary_model}",
+                {
+                    "model": self.primary_model,
                     "response": response_text
                 }
             )
@@ -80,29 +98,38 @@ class GeminiService:
             logger.warning(f"Primary model {self.primary_model} failed: {primary_err}. Trying fallback model {self.fallback_model}...")
             Tracker.record_event(
                 self.run_id,
-                "model_invocation_fallback",
+                "model_error",
                 agent_source,
                 f"Primary model {self.primary_model} failed ({primary_err}). Falling back to {self.fallback_model}",
                 {
                     "primary_model": self.primary_model,
                     "error": str(primary_err),
-                    "fallback_model": self.fallback_model,
-                    "prompt": prompt
+                    "fallback_model": self.fallback_model
                 }
             )
 
             # 2. Try Fallback Model
             try:
-                response_text = self._call_model(self.fallback_model, prompt, system_instruction)
                 Tracker.record_event(
                     self.run_id,
-                    "model_invocation_success",
+                    "model_request",
                     agent_source,
-                    f"Generated response using fallback model: {self.fallback_model}",
+                    f"Sending fallback prompt to {self.fallback_model}",
                     {
                         "model": self.fallback_model,
                         "prompt": prompt,
                         "system_instruction": system_instruction,
+                        "fallback_from": self.primary_model
+                    }
+                )
+                response_text = self._call_model(self.fallback_model, prompt, system_instruction)
+                Tracker.record_event(
+                    self.run_id,
+                    "model_response",
+                    agent_source,
+                    f"Received response from fallback model: {self.fallback_model}",
+                    {
+                        "model": self.fallback_model,
                         "response": response_text
                     }
                 )
@@ -112,14 +139,13 @@ class GeminiService:
                 resp = self._mock_response(prompt, agent_source)
                 Tracker.record_event(
                     self.run_id,
-                    "model_invocation_failed",
+                    "model_error",
                     agent_source,
                     f"Both models failed. Activated resilient response generator.",
                     {
                         "primary_error": str(primary_err),
                         "fallback_error": str(fallback_err),
-                        "prompt": prompt,
-                        "response": resp
+                        "simulated_response": resp
                     }
                 )
                 return resp

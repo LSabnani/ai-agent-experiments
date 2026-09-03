@@ -136,6 +136,51 @@ class TestItineraryPipeline(unittest.TestCase):
                     self.assertIn("event_id", ev_obj)
                     self.assertIn("payload", ev_obj)
 
+    def test_invocations_requests_responses_payloads(self):
+        """Verifies that invocations, requests, and responses for agents, skills, and models are recorded with payloads."""
+        orchestrator = PipelineOrchestrator(run_id="req_resp_test_run")
+        result = orchestrator.run(
+            origin="Boston, USA",
+            destination="Dublin, Ireland",
+            days=2,
+            budget=900.0,
+            interests=["Pubs", "History"]
+        )
+        self.assertTrue(result["success"])
+
+        events = Tracker.get_events_for_run("req_resp_test_run")
+        event_types = [e["event_type"] for e in events]
+
+        # Model requests and responses
+        self.assertIn("model_request", event_types)
+        self.assertIn("model_response", event_types)
+
+        # Agent requests and responses
+        self.assertIn("agent_request", event_types)
+        self.assertIn("agent_response", event_types)
+
+        # Skill requests and responses
+        self.assertIn("skill_request", event_types)
+        self.assertIn("skill_response", event_types)
+
+        # Pipeline request and response
+        self.assertIn("pipeline_request", event_types)
+        self.assertIn("pipeline_response", event_types)
+
+        # Verify actual payloads are populated
+        model_req = next(e for e in events if e["event_type"] == "model_request")
+        self.assertIn("prompt", model_req["payload"])
+
+        model_resp = next(e for e in events if e["event_type"] == "model_response")
+        self.assertIn("response", model_resp["payload"])
+
+        agent_req = next(e for e in events if e["event_type"] == "agent_request" and e["agent_source"] == "FlightResearcher")
+        self.assertIn("destination", agent_req["payload"])
+        self.assertEqual(agent_req["payload"]["destination"], "Dublin, Ireland")
+
+        agent_resp = next(e for e in events if e["event_type"] == "agent_response" and e["agent_source"] == "FlightResearcher")
+        self.assertIn("flights", agent_resp["payload"])
+
     def test_export_service(self):
         """Verifies text and PDF generators."""
         state = create_initial_state("Vienna, Austria", 1200, 3, ["Classical Music"])
