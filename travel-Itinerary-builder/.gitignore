@@ -1,4 +1,4 @@
-**/artifacts/*
-*/.env
-**/.env
-*/.venv/*
+artifacts/
+.env
+.venv/
+__pycache__/
