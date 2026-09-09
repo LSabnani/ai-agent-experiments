@@ -1,0 +1,39 @@
+ALEX MORGAN
+Senior Operations & Program Manager
+San Francisco, CA | alex.morgan@example.com | linkedin.com/in/alexmorgan-example
+
+PROFESSIONAL SUMMARY
+Dynamic, result-oriented leader with over 8 years of experience in cross-functional Program Management, Supply Chain Optimization, and Materials Management. Proven track record of scaling global hardware operations, leading agile technical teams, and optimizing vendor procurement workflows.
+
+TARGET ROLES:
+- Technical Program Manager
+- Senior Supply Chain Analyst
+- Materials Program Manager
+
+CORE COMPETENCIES & SKILLS
+- Program Management, Cross-Functional Team Leadership, Agile/Scrum
+- Supply Chain Optimization, Demand Planning, Vendor Management
+- Materials Management, Inventory Control, Bill of Materials (BOM), ERP/SAP
+- Data Analytics, Python, SQL, Tableau, Financial Modeling
+- Process Engineering, Six Sigma Black Belt, Risk Mitigation
+
+WORK EXPERIENCE
+
+Senior Technical Program Manager | TechLogix Inc. | 2021 – Present
+- Led cross-functional team of 15 engineers, supply chain planners, and product managers to launch flagship hardware product on schedule.
+- Reduced supply chain lead time by 22% through strategic supplier negotiations and inventory buffer strategy.
+- Managed $12M hardware BOM budget, keeping variance under 2% across 4 quarters.
+
+Supply Chain Analyst | Global Devices Corp | 2018 – 2021
+- Optimized component demand forecasting using Python and SQL models, improving forecast accuracy from 78% to 92%.
+- Collaborated with Materials Program Managers to streamline inventory control and warehouse logistics.
+- Conducted root-cause analysis on supply bottlenecks during peak production cycles.
+
+Operations Specialist | Apex Logistics | 2016 – 2018
+- Streamlined warehouse receiving workflows, cutting processing cycle times by 30%.
+- Implemented automated tracking systems for incoming raw materials.
+
+EDUCATION & CERTIFICATIONS
+- B.S. in Industrial Engineering & Operations Research, UC Berkeley
+- Certified Supply Chain Professional (CSCP) - APICS
+- Project Management Professional (PMP)

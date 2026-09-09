@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent Pipeline - Architecture & Workflow</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-secondary: #131b2e;
+            --card-bg: rgba(22, 32, 54, 0.7);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --shadow-glow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(139, 92, 246, 0.15) 0%, transparent 40%);
+            background-attachment: fixed;
+            padding: 2rem;
+        }
+
+        header {
+            max-width: 1200px;
+            margin: 0 auto 2.5rem auto;
+            text-align: center;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.75rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #34d399 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            font-size: 1.15rem;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: var(--shadow-glow);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: rgba(96, 165, 250, 0.3);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 1rem;
+        }
+
+        .card-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .badge {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        /* Mermaid styling */
+        .diagram-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            background: rgba(11, 15, 25, 0.6);
+            border-radius: 12px;
+            overflow-x: auto;
+            min-height: 350px;
+        }
+
+        .mermaid {
+            width: 100%;
+        }
+
+        /* Grid layout for Agent stages */
+        .agents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .agent-card {
+            background: rgba(19, 27, 46, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .agent-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+        }
+
+        .agent-card.researcher::before { background: var(--accent-blue); }
+        .agent-card.analyst::before { background: var(--accent-purple); }
+        .agent-card.writer::before { background: var(--accent-green); }
+
+        .agent-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .agent-number {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .agent-name {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+
+        .feature-list {
+            list-style: none;
+        }
+
+        .feature-list li {
+            position: relative;
+            padding-left: 1.5rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+            color: #d1d5db;
+            line-height: 1.5;
+        }
+
+        .feature-list li::before {
+            content: '⚡';
+            position: absolute;
+            left: 0;
+            font-size: 0.85rem;
+        }
+
+        .tech-pill {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #a78bfa;
+            margin-top: 0.5rem;
+            margin-right: 0.4rem;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 3rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Mermaid node customizations via SVG override */
+        .node rect, .node circle, .node polygon {
+            fill: #1e293b !important;
+            stroke: #38bdf8 !important;
+            stroke-width: 2px !important;
+        }
+        .node .label {
+            color: #f8fafc !important;
+            font-family: 'Inter', sans-serif !important;
+        }
+        .edgePath .path {
+            stroke: #94a3b8 !important;
+            stroke-width: 2px !important;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>AI Agent Pipeline Architecture</h1>
+        <p class="subtitle">Multi-agent intelligent workflow based on <code>spec.md</code> for automated job hunting, capability analysis, and cover letter crafting.</p>
+    </header>
+
+    <div class="container">
+        <!-- Interactive Workflow Diagram Card -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <span>🔄 End-to-End Workflow Diagram</span>
+                </div>
+                <span class="badge">Live Mermaid Render</span>
+            </div>
+            <div class="diagram-container">
+                <div class="mermaid">
+                flowchart TD
+                    A["📄 Input: Resume PDF / LinkedIn"] --> B["🔍 1. Researcher Agent"]
+                    B -->|"Extracted Profile & Roles"| C["🌐 LinkedIn Opportunity Sourcing"]
+                    C -->|"List of Job Opportunities"| D["📊 2. Capability Analyst Agent"]
+                    D -->|"Fit Score (0-100%) & Keyword Gaps"| E{"🎯 Fit Score ≥ Threshold?"}
+                    E -->|"Yes (High Match)"| F["✍️ 3. Cover Letter Writer Agent"]
+                    E -->|"No (Gaps Identified)"| G["💡 Learning & ATS Optimization Recs"]
+                    F -->|"Rebecca Okamoto Style Cover Letter"| H["📦 Final Job Hunting Report"]
+                    G --> H
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Agent Cards -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <span>🤖 Core Agent Components</span>
+                </div>
+                <span class="badge">Modular Pipeline</span>
+            </div>
+
+            <div class="agents-grid">
+                <!-- Researcher Agent -->
+                <div class="agent-card researcher">
+                    <div class="agent-number">Stage 01</div>
+                    <div class="agent-name">Researcher Agent</div>
+                    <ul class="feature-list">
+                        <li>Parses incoming PDF / LinkedIn resume text.</li>
+                        <li>Extracts candidate skill sets & target role profiles (Program Manager, Supply Chain Analyst, etc.).</li>
+                        <li>Sources matching job opportunities from LinkedIn.</li>
+                    </ul>
+                    <div>
+                        <span class="tech-pill">PyPDF</span>
+                        <span class="tech-pill">LinkedIn Search</span>
+                        <span class="tech-pill">Profile Parser</span>
+                    </div>
+                </div>
+
+                <!-- Capability Analyst Agent -->
+                <div class="agent-card analyst">
+                    <div class="agent-number">Stage 02</div>
+                    <div class="agent-name">Capability Analyst Agent</div>
+                    <ul class="feature-list">
+                        <li>Calculates precise fit score (0-100%) per job listing.</li>
+                        <li>Identifies missing keywords & critical skill gaps.</li>
+                        <li>Recommends courses & training to bridge ability gaps.</li>
+                        <li>Provides ATS resume keyword tuning advice.</li>
+                    </ul>
+                    <div>
+                        <span class="tech-pill">Keyword Matcher</span>
+                        <span class="tech-pill">Gap Analyzer</span>
+                        <span class="tech-pill">ATS Optimizer</span>
+                    </div>
+                </div>
+
+                <!-- Cover Letter Writer Agent -->
+                <div class="agent-card writer">
+                    <div class="agent-number">Stage 03</div>
+                    <div class="agent-name">Cover Letter Writer Agent</div>
+                    <ul class="feature-list">
+                        <li>Triggers for high-fit opportunity matches.</li>
+                        <li>Adopts Rebecca Okamoto's TED Talk narrative style.</li>
+                        <li>Highlights core abilities, value proposition & authentic enthusiasm over templated filler.</li>
+                    </ul>
+                    <div>
+                        <span class="tech-pill">Storytelling LLM</span>
+                        <span class="tech-pill">Okamoto Style Prompt</span>
+                        <span class="tech-pill">Markdown Exporter</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>AI Agent Pipeline Spec Viewer • Job Hunting Project</p>
+    </footer>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true, 
+            theme: 'dark',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+id,test_module,test_case_name,description,status
+1,test_history.TestItineraryHistoryAndLogs,test_api_health_endpoint,Verify health check returns healthy status,PASSED
+2,test_history.TestItineraryHistoryAndLogs,test_api_list_itineraries_endpoint,Verify GET /api/itineraries endpoint,PASSED
+3,test_history.TestItineraryHistoryAndLogs,test_get_all_itineraries_with_events,Verify grouping of events into itineraries,PASSED
+4,test_history.TestItineraryHistoryAndLogs,test_get_itinerary_by_id,Verify fetching single itinerary by ID,PASSED
+5,test_history.TestItineraryHistoryAndLogs,test_summarize_event_for_display,Verify human-friendly summary generation,PASSED
+6,test_pipeline.TestTravelItineraryBuilder,test_activity_planner_and_error_handling,"Test ActivityPlanner agent configuration, data structuring, and error handling",PASSED
+7,test_pipeline.TestTravelItineraryBuilder,test_exact_cost_sum_calculation,"Test that total estimated cost strictly equals flight + lodging * days + sum(activities)",PASSED
+8,test_pipeline.TestTravelItineraryBuilder,test_flask_validation_missing_fields,Test Flask input validation prompts user when required fields are missing,PASSED
+9,test_pipeline.TestTravelItineraryBuilder,test_milestone_1_structural_integrity,Milestone 1: Must explicitly declare ParallelAgent and LoopAgent frameworks,PASSED
+10,test_pipeline.TestTravelItineraryBuilder,test_milestone_2_state_schema_and_context_extraction,Milestone 2: Centralized Global State Schema & critic feedback,PASSED
+11,test_pipeline.TestTravelItineraryBuilder,test_milestone_3_graceful_failure_handling,"Milestone 3: Must handle impossible inputs (e.g. extremely low budgets) without crashing",PASSED
+12,test_pipeline.TestTravelItineraryBuilder,test_normalize_schedule_flat_and_nested,Test that normalize_schedule correctly partitions flat event lists into DaySchedule objects,PASSED
+13,test_pipeline.TestTravelItineraryBuilder,test_scheduler_skill_and_geographic_clustering,Test Scheduler agent skill integration and geographic clustering instructions,PASSED
+14,test_pipeline.TestTravelItineraryBuilder,test_usages_csv_logging,Test that usages.csv is created and written with required 10 columns,PASSED

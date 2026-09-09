@@ -1,0 +1,53 @@
+[
+  {
+    "id": "JOB-100",
+    "title": "Senior Technical Program Manager",
+    "company": "Apex Hardware Systems",
+    "location": "Sunnyvale, CA (Hybrid)",
+    "description": "We are looking for a Senior Technical Program Manager to lead cross-functional hardware and software development programs. You will work closely with engineering, supply chain, and product delivery teams to deliver error-free high performance products.\n\nKey Responsibilities:\n- Lead cross-functional program teams from product concept to commercial release.\n- Manage program risk, product lifecycle management (PLM), and stakeholder alignment.\n- Drive quality assurance and operational excellence across product delivery.\n\nRequirements:\n- 6+ years in Technical Program Management.\n- Experience in Product Lifecycle Management (PLM), Agile/Waterfall, and Risk Management.\n- Proven track record of cross-functional team leadership and error-free execution.",
+    "required_skills": [
+      "Technical Program Management",
+      "Program Management",
+      "Product Lifecycle Management (PLM)",
+      "Cross-Functional Team Leadership",
+      "Agile & Waterfall Methodologies",
+      "Risk Management",
+      "Quality Assurance"
+    ],
+    "url": "https://linkedin.com/jobs/view/sample-100"
+  },
+  {
+    "id": "JOB-101",
+    "title": "Materials Program Manager",
+    "company": "NextGen Hardware Systems",
+    "location": "Cupertino, CA (Hybrid)",
+    "description": "We are seeking a proactive Materials Program Manager to lead hardware component strategy and BOM management for next-generation devices.",
+    "required_skills": [
+      "Materials Program Management",
+      "Clear-to-Build (CTB)",
+      "BOM Management",
+      "ERP / SAP",
+      "Supplier Negotiations",
+      "Risk Mitigation",
+      "SQL"
+    ],
+    "url": "https://linkedin.com/jobs/view/sample-101"
+  },
+  {
+    "id": "JOB-102",
+    "title": "Senior Supply Chain Analyst",
+    "company": "AeroTech Solutions",
+    "location": "San Jose, CA",
+    "description": "AeroTech Solutions is looking for a Senior Supply Chain Analyst to drive data-driven decision making in global procurement and logistics.",
+    "required_skills": [
+      "Supply Chain Optimization",
+      "Demand Planning",
+      "Python",
+      "SQL",
+      "Tableau",
+      "Predictive Analytics",
+      "CSCP"
+    ],
+    "url": "https://linkedin.com/jobs/view/sample-102"
+  }
+]
