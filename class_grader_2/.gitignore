@@ -4,6 +4,7 @@ outputs/
 .env
 
 # Python
+.venv
 .venv/
 venv/
 __pycache__/
@@ -14,6 +15,3 @@ __pycache__/
 # Node
 node_modules/
 
-# OS / editor cruft
-.DS_Store
-Thumbs.db
