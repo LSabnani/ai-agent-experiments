@@ -19,7 +19,7 @@ def main():
         "--resume", 
         type=str, 
         default=None,
-        help="Path to candidate resume file (.docx, .pdf, .txt) (default: 2025_Dec10  L Sabnani PMv2.docx)"
+        help="Path to candidate resume file (.docx, .pdf, .txt) (default: 2026Sep12 LSabnani PMv1.docx)"
     )
     parser.add_argument(
         "--roles",

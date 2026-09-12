@@ -11,7 +11,7 @@ class CandidateProfile(BaseModel):
     core_skills: List[str] = Field(default_factory=list, description="Primary technical and domain skills")
     experience_summary: str = Field(description="Summary of work history and key achievements")
     raw_resume_text: Optional[str] = Field(None, description="Raw extracted resume text")
-    source_used: str = Field(default="Resume (2025_Dec10  L Sabnani PMv2.docx)", description="Explicitly indicates LinkedIn profile or Resume file used for evaluation")
+    source_used: str = Field(default="Resume (2026Sep12 LSabnani PMv1.docx)", description="Explicitly indicates LinkedIn profile or Resume file used for evaluation")
 
 class JobOpportunity(BaseModel):
     id: str = Field(description="Unique job identifier")
@@ -28,7 +28,7 @@ class AnalysisResult(BaseModel):
     job_title: str = Field(description="Title of analyzed job opportunity")
     company: str = Field(description="Company name")
     platform: str = Field(default="LinkedIn", description="Source platform for the job posting")
-    source_used: str = Field(default="Resume (2025_Dec10  L Sabnani PMv2.docx)", description="Explicitly indicates the Resume file or LinkedIn Profile used for evaluation")
+    source_used: str = Field(default="Resume (2026Sep12 LSabnani PMv1.docx)", description="Explicitly indicates the Resume file or LinkedIn Profile used for evaluation")
     fit_score: float = Field(description="Calculated fit score percentage (0 - 100)")
     matched_keywords: List[str] = Field(default_factory=list, description="Keywords present in both resume and job posting")
     missing_keywords: List[str] = Field(default_factory=list, description="Keywords required by job but absent/weak in resume")

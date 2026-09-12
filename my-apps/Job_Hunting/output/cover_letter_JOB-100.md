@@ -17,4 +17,4 @@ I welcome the opportunity to discuss how my digital transformation expertise, AI
 Warm regards,
 
 LALIT SABNANI, PMP
-408.623.1710 |sabnani@gmail.com | linkedin.com/in/lalitsabnani
+408-623-1710 | sabnani@gmail.com | linkedin.com/in/lalitsabnani | Santa Clara, CA

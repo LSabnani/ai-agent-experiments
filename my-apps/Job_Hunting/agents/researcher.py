@@ -32,7 +32,7 @@ class ResearcherAgent:
                 print(f"[ResearcherAgent] Note: Could not initialize GenAI client: {e}")
 
     DEFAULT_LINKEDIN = "https://www.linkedin.com/in/lalitsabnani"
-    DEFAULT_RESUME = os.path.join(config.BASE_DIR, "2025_Dec10  L Sabnani PMv2.docx")
+    DEFAULT_RESUME = os.path.join(config.BASE_DIR, "2026Sep12 LSabnani PMv1.docx")
     DEFAULT_ROLES = ["Program Manager", "Supply Chain Analyst", "Materials Program Manager"]
 
     def load_jobs_from_file(self, file_path: str) -> List[JobOpportunity]:
@@ -85,7 +85,7 @@ class ResearcherAgent:
             linkedin_url = input(f"   [Default: {self.DEFAULT_LINKEDIN}]: ").strip()
             
             print("3. Enter Resume File Path (.docx/.pdf/.txt):")
-            resume_path = input(f"   [Default: 2025_Dec10  L Sabnani PMv2.docx]: ").strip()
+            resume_path = input(f"   [Default: 2026Sep12 LSabnani PMv1.docx]: ").strip()
         except (EOFError, KeyboardInterrupt):
             print("\n[Non-interactive shell detected / EOF - using defaults]")
         
@@ -136,7 +136,7 @@ class ResearcherAgent:
         self, 
         resume_text: str, 
         target_roles: Optional[List[str]] = None,
-        source_used: str = "Resume (2025_Dec10  L Sabnani PMv2.docx)"
+        source_used: str = "Resume (2026Sep12 LSabnani PMv1.docx)"
     ) -> CandidateProfile:
         """Parse raw resume text into structured CandidateProfile using Gemini or rule-based fallback."""
         specified_roles = target_roles if target_roles else self.DEFAULT_ROLES

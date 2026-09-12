@@ -83,7 +83,7 @@ python main.py --resume "path/to/my_resume.docx" \
 | Flag | Short / Type | Description | Default |
 | :--- | :--- | :--- | :--- |
 | `--sample` | flag | Runs automatically with default inputs without prompting for user confirmation. | `False` |
-| `--resume` | string | Path to candidate resume file (`.docx`, `.pdf`, `.txt`). | `2025_Dec10  L Sabnani PMv2.docx` |
+| `--resume` | string | Path to candidate resume file (`.docx`, `.pdf`, `.txt`). | `2026Sep12 LSabnani PMv1.docx` |
 | `--linkedin`| string | LinkedIn Profile URL. | `https://www.linkedin.com/in/lalitsabnani` |
 | `--roles` | string | Comma-separated list of target job roles. | `Program Manager, Supply Chain Analyst, Materials Program Manager` |
 | `--jobs` | string | Path to JSON file containing job listings. | `sample_data/jobs_sample.json` |
